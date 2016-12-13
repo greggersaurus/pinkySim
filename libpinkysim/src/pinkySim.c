@@ -14,6 +14,9 @@
 #include <common.h>
 #include <pinkySim.h>
 
+#include <string.h>
+#include <time.h>
+
 /* Fields decoded from instructions. */
 typedef struct Fields
 {
@@ -57,6 +60,110 @@ typedef struct AddResults
     int      carryOut;
     int      overflow;
 } AddResults;
+
+static const uint8_t MAX_DECODE_STR_LEN = 128; //!< Maximum number of characters
+	//!< in decodedData string
+
+/**
+ * Add entry into log so we can review execution later. Also useful for 
+ *  determining sections of code if in raw binary format.
+ *
+ * \param[in] context Current processor context (reg values, etc.)
+ * \param offset Memory offset being affected.
+ * \param rawData Raw Data at memory offset.
+ * \param size Number of valid bytes in rawData.
+ * \param[in] decodedData Describes data intepretation (i.e. decoded instruction)
+ *
+ * \return None.
+ */
+static void addLogEntry(const PinkySimContext* context, uint32_t offset, 
+	uint32_t rawData, uint32_t size, const char* decodedData)
+{
+	static uint32_t entryNum = 0;
+	static FILE* runLogFile = NULL;
+	size_t cnt = 0;
+
+	if (!runLogFile)
+	{
+		char tmp_str[128];
+		time_t rawtime;
+		time(&rawtime);
+		snprintf(tmp_str, ARRAY_SIZE(tmp_str), "runLogFile_%020llu.csv", 
+			(uint64_t)rawtime);
+		runLogFile = fopen(tmp_str, "w");
+
+		// Add first entry, which is header describing each column
+		fprintf(runLogFile, " Entry Num, ");
+		fprintf(runLogFile, "File Offset, ");
+		fprintf(runLogFile, "  Raw Data, ");
+ 
+		snprintf(tmp_str, ARRAY_SIZE(tmp_str), "Decoded Raw Data");
+		for (cnt = strnlen(tmp_str, ARRAY_SIZE(tmp_str)); cnt < ARRAY_SIZE(tmp_str); cnt++)
+		{
+			fprintf(runLogFile, " ");
+		}
+		fprintf(runLogFile, "%s, ", tmp_str);
+
+		fprintf(runLogFile, "Current PC, ");
+		fprintf(runLogFile, "   Next PC, ");
+		fprintf(runLogFile, "        SP, ");
+		fprintf(runLogFile, "        LR, ");
+		fprintf(runLogFile, "      XPSR, ");
+		fprintf(runLogFile, "   PRIMASK, ");
+		fprintf(runLogFile, "   CONTROL, ");
+	
+		for (cnt = 0; cnt < ARRAY_SIZE(context->R); cnt++)	
+		{
+			fprintf(runLogFile, "              Register % 2d, ", 
+				(int)cnt);
+		}
+
+		fprintf(runLogFile, "\n");
+	}
+
+	fprintf(runLogFile, "% 10d, ", entryNum);
+	fprintf(runLogFile, " 0x%08d, ", offset);
+	switch(size)
+	{
+		case 1:
+			fprintf(runLogFile, "      0x%02x, ", 0xFF&rawData);
+			break;
+		case 2:
+			fprintf(runLogFile, "    0x%04x, ", 0xFFFF&rawData);
+			break;
+		case 4:
+			fprintf(runLogFile, "0x%08x, ", 0xFFFFFFFF&rawData);
+			break;
+		default:
+			__throw(invalidArgumentException);
+			break;
+	}
+
+	for (cnt = strnlen(decodedData, MAX_DECODE_STR_LEN); cnt < MAX_DECODE_STR_LEN; cnt++)
+	{
+		fprintf(runLogFile, " ");
+	}
+	fprintf(runLogFile, "%s, ", decodedData);
+
+	fprintf(runLogFile, "0x%08x, ", context->pc);
+	fprintf(runLogFile, "0x%08x, ", context->newPC);
+	fprintf(runLogFile, "0x%08x, ", context->spMain);
+	fprintf(runLogFile, "0x%08x, ", context->lr);
+	fprintf(runLogFile, "0x%08x, ", context->xPSR);
+	fprintf(runLogFile, "0x%08x, ", context->PRIMASK);
+	fprintf(runLogFile, "0x%08x, ", context->CONTROL);
+
+	for (cnt = 0; cnt < ARRAY_SIZE(context->R); cnt++)	
+	{
+		fprintf(runLogFile, "0x%08x (% 12d), ", context->R[cnt], context->R[cnt]);
+	}
+
+	fprintf(runLogFile, "\n");
+
+	fflush(runLogFile);
+
+	entryNum++;
+}
 
 /* Function Prototypes */
 static int executeInstruction16(PinkySimContext* pContext, uint16_t instr);
@@ -1115,6 +1222,10 @@ static int ldrLiteral(PinkySimContext* pContext, uint16_t instr)
     base = align(getReg(pContext, PC), 4);
     address = base + fields.imm;
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
+
+    // Load reg fields.t with value read from address
+    addLogEntry(pContext, pContext->pc, instr, 2, "LDR");
+
     return PINKYSIM_STEP_OK;
 }
 
@@ -1160,6 +1271,9 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
         result = IMemory_Read32(pContext->pMemory, address);
         break;
     }
+
+    addLogEntry(pContext, address, result, size, "Data");
+
     return result;
 }
 
