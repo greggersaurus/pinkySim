@@ -61,6 +61,13 @@ typedef struct AddResults
     int      overflow;
 } AddResults;
 
+//typedef struct MemInfo
+
+inline static uint32_t to32BitInst(uint16_t instr1, uint16_t instr2)
+{
+    return (instr2<<16 | instr1);
+}
+
 static const uint8_t MAX_DECODE_STR_LEN = 128; //!< Maximum number of characters
 	//!< in decodedData string
 
@@ -135,6 +142,8 @@ static void addLogEntry(const PinkySimContext* context, uint32_t offset,
 			fprintf(runLogFile, "0x%08x, ", 0xFFFFFFFF&rawData);
 			break;
 		default:
+			fprintf(runLogFile, "Exception: invalidArgumentException for size %d", size);
+			fflush(runLogFile);
 			__throw(invalidArgumentException);
 			break;
 	}
@@ -1218,7 +1227,10 @@ static int specialDataAndBranchExchange(PinkySimContext* pContext, uint16_t inst
     if ((instr & 0x0300) == 0x0000)
         result = addRegisterT2(pContext, instr);
     else if ((instr & 0x03C0) == 0x0100)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException)
+    }
     else if (((instr & 0x03C0) == 0x0140) || ((instr & 0x0380) == 0x0180))
         result = cmpRegisterT2(pContext, instr);
     else if ((instr & 0x0300) == 0x0200)
@@ -1236,7 +1248,10 @@ static int addRegisterT2(PinkySimContext* pContext, uint16_t instr)
     AddResults      addResults;
 
     if (fields.d == 15 && fields.m == 15)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     addResults = addWithCarry(getReg(pContext, fields.n), getReg(pContext, fields.m), 0);
     if (fields.d == 15)
@@ -1282,7 +1297,10 @@ static int cmpRegisterT2(PinkySimContext* pContext, uint16_t instr)
     AddResults      addResults;
 
     if (fields.n == 15 || fields.m == 15)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     addResults = addWithCarry(getReg(pContext, fields.n), ~getReg(pContext, fields.m), 1);
     updateNZCV(pContext, &fields, &addResults);
@@ -1317,9 +1335,15 @@ static int bx(PinkySimContext* pContext, uint16_t instr)
     Fields fields = decodeRdn7and2to0_Rm6to3(instr);
 
     if ((instr & 0x7) != 0x0)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if (fields.m == 15)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     bxWritePC(pContext, getReg(pContext, fields.m));
 
@@ -1349,9 +1373,15 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
     uint32_t nextInstrAddr;
 
     if ((instr & 0x7) != 0x0)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if (fields.m == 15)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     target = getReg(pContext, fields.m);
     nextInstrAddr = getReg(pContext, PC) - 2;
@@ -1421,7 +1451,10 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
     assert (size == 4 || size == 2 || size == 1);
 
     if (!isAligned(address, size))
+    {
+        addLogEntry(pContext, address, result, size, "Exception: alignmentException");
         __throw(alignmentException);
+    }
 
     switch (size)
     {
@@ -1523,7 +1556,10 @@ static void alignedMemWrite(PinkySimContext* pContext, uint32_t address, uint32_
     assert (size == 4 || size == 2 || size == 1);
 
     if (!isAligned(address, size))
+    {
+        addLogEntry(pContext, address, value, size, "Exception: alignmentException");
         __throw(alignmentException);
+    }
 
     switch (size)
     {
@@ -1861,7 +1897,10 @@ static int misc16BitInstructions(PinkySimContext* pContext, uint16_t instr)
     else if ((instr & 0x0E00) == 0x0C00)
         result = pop(pContext, instr);
     else if ((instr & 0x0F00) == 0x0E00)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: bkptException");
         __throw(bkptException)
+    }
     else if ((instr & 0x0F00) == 0x0F00)
         result = hints(pContext, instr);
     return result;
@@ -1965,7 +2004,10 @@ static int push(PinkySimContext* pContext, uint16_t instr)
     int         i;
 
     if (bitCount(registers) < 1)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     address = getReg(pContext, SP) - 4 * bitCount(registers);
     for (i = 0 ; i <= 14 ; i++)
@@ -2002,7 +2044,10 @@ static int cps(PinkySimContext* pContext, uint16_t instr)
     uint32_t im = instr & (1 << 4);
 
     if ((instr & 0xF) != 0x2)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     if (currentModeIsPrivileged(pContext))
     {
@@ -2083,7 +2128,10 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
     int         i;
 
     if (bitCount(registers) < 1)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     address = getReg(pContext, SP);
     for (i = 0 ; i <= 7 ; i++)
@@ -2117,7 +2165,10 @@ static int hints(PinkySimContext* pContext, uint16_t instr)
     int      result = PINKYSIM_STEP_UNDEFINED;
 
     if (opB != 0x0000)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: undefinedException");
         __throw(undefinedException);
+    }
     switch (opA)
     {
     case 0:
@@ -2187,9 +2238,15 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
     int      i;
 
     if (bitCount(fields.registers) < 1)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if ((fields.registers & (1 << fields.n)) && isNotLowestBitSet(fields.registers, fields.n))
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     address = getReg(pContext, fields.n);
     for (i = 0 ; i <= 14 ; i++)
@@ -2231,7 +2288,10 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
     int      i;
 
     if (bitCount(fields.registers) < 1)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     address = getReg(pContext, fields.n);
     for (i = 0 ; i <= 7 ; i++)
@@ -2255,7 +2315,10 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
 static int conditionalBranchAndSupervisor(PinkySimContext* pContext, uint16_t instr)
 {
     if ((instr & 0x0F00) == 0x0E00)
+    {
+        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: undefinedException");
         __throw(undefinedException)
+    }
     else if ((instr & 0x0F00) == 0x0F00)
         return svc(pContext, instr);
     else
@@ -2358,6 +2421,7 @@ static int branchAndMiscellaneousControl(PinkySimContext* pContext, uint16_t ins
     else if ((instr2 & 0x5000) == 0x5000)
         return bl(pContext, instr1, instr2);
 
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: undefinedException");
     __throw(undefinedException);
 }
 
@@ -2368,11 +2432,20 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     uint32_t value;
 
     if (n == 13 || n == 15)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if (SYSm == 4 || (SYSm > 9 && SYSm < 16) || (SYSm > 16 && SYSm < 20) || (SYSm > 20))
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if ((instr1 & 0x0010) != 0x0000 || (instr2 & 0x3F00) != 0x0800)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     value = getReg(pContext, n);
     switch (SYSm >> 3)
@@ -2413,7 +2486,7 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr2<<16 | instr1, 4, desc);
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2434,11 +2507,14 @@ static int miscellaneousControl(PinkySimContext* pContext, uint16_t instr1, uint
 static int dsb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 {
     if ((instr1 & 0x000F) != 0x000F || (instr2 & 0x2F00) != 0x0F00)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr2<<16 | instr1, 4, desc);
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2446,11 +2522,14 @@ static int dsb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 static int dmb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 {
     if ((instr1 & 0x000F) != 0x000F || (instr2 & 0x2F00) != 0x0F00)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr2<<16 | instr1, 4, desc);
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2458,11 +2537,14 @@ static int dmb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 static int isb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 {
     if ((instr1 & 0x000F) != 0x000F || (instr2 & 0x2F00) != 0x0F00)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr2<<16 | instr1, 4, desc);
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2474,11 +2556,20 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     uint32_t value = 0;
 
     if (d == 13 || d == 15)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if (SYSm == 4 || (SYSm > 9 && SYSm < 16) || (SYSm > 16 && SYSm < 20) || (SYSm > 20))
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
     if ((instr1 & 0x001F) != 0x000F || (instr2 & 0x2000) != 0x0000)
+    {
+        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
+    }
 
     switch (SYSm >> 3)
     {
@@ -2520,7 +2611,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr2<<16 | instr1, 4, desc);
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2543,7 +2634,7 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr2<<16 | instr1, 4, desc);
+    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
 }
