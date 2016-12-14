@@ -398,3 +398,9 @@ total 64
 
 The *.cov files under the gcov/FileTest/ directory contain the source code with the left hand column used to indicate
 how many times each line was executed, flagging lines not covered with {{{#####}}}.
+
+==Logging
+When pinkySim is run a log of the form runLogFile_*.csv will be created that logs each instruction and data access (where '*'
+is filled in with a timestamp of when the first instruction or data access occurred). The first entry in this CSV defines what
+each column is. The logging feature is intended for studying executions as well as for defining valid instructions and data
+entries for executables that have had their symbol tables stripped (i.e. raw binary format).
