@@ -1378,13 +1378,16 @@ static int ldrLiteral(PinkySimContext* pContext, uint16_t instr)
     Fields   fields = decodeRt10to8_Imm7to0Shift2(instr);
     uint32_t base;
     uint32_t address;
+    uint32_t value;
 
     base = align(getReg(pContext, PC), 4);
     address = base + fields.imm;
-    setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
+    value = unalignedMemRead(pContext, address, 4);
+    setReg(pContext, fields.t, value);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
+	__func__, fields.t, value, address);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
