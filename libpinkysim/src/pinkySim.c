@@ -68,6 +68,69 @@ inline static uint32_t to32BitInst(uint16_t instr1, uint16_t instr2)
     return (instr2<<16 | instr1);
 }
 
+typedef struct MemInfoEntry
+{
+	uint32_t start; //!< Base address for the memory section
+	uint32_t end; //!< Non-inclusive end address for memory section.
+	const char* desc; //!< Description of the memory seciton.
+} MemInfoEntry;
+
+
+//TODO: Explicitely add in all reserved sections?
+// Memory sections specific to NXP LPC11U37 Chip
+static const struct MemInfoEntry LPC11U37_MEM_INFO[] = 
+{
+	{0x00000000, 0x00020000, "128 kB on-chip flash"},
+	{0x10000000, 0x10002000, "8 kB SRAM0"},
+	{0x1FFF0000, 0x1FFF4000, "16 kB boot ROM"},
+	{0x20000000, 0x20000800, "2 kB SRAM1"},
+	{0x20004000, 0x20004800, "2 kB USB SRAM"},
+	{0x40000000, 0x40004000, "I2C-bus"},
+	{0x40004000, 0x40008000, "WWDT"},
+	{0x40008000, 0x4000C000, "USART/SMART CARD"},
+	{0x4000C000, 0x40010000, "16-bit counter/timer 0"},
+	{0x40010000, 0x40014000, "16-bit counter/timer 1"},
+	{0x40014000, 0x40018000, "32-bit counter/timer 0"},
+	{0x40018000, 0x4001C000, "32-bit counter/timer 1"},
+	{0x4001C000, 0x40020000, "ADC"},
+	{0x40038000, 0x4003C000, "PMU"},
+	{0x4003C000, 0x40040000, "flash/EEPROM controller"},
+	{0x40040000, 0x40044000, "SSPO"},
+	{0x40044000, 0x40048000, "IOCON"},
+	{0x40048000, 0x4004C000, "system control"},
+	{0x4004C000, 0x40050000, "GPIO interrupts"},
+	{0x40058000, 0x4005C000, "SSP1"},
+	{0x4005C000, 0x40060000, "GPIO GROUP0 INT"},
+	{0x40060000, 0x40064000, "GPIO GROUP1 INT"},
+	{0x40080000, 0x40084000, "USB"},
+	{0x50000000, 0x50004000, "GPIO"},
+	{0xE0000000, 0xE0100000, "private peripheral bus"},
+	{0xE0100000, 0xFFFFFFFF, "reserved"}
+};
+
+/**
+ * \param addr Address to get description of.
+ *
+ * \return Description of given memory that given address falls under.
+ */
+static const char* getMemInfo(uint32_t addr)
+{
+	const char* retval = "Unknown";
+	size_t cnt = 0;
+
+	for (cnt = 0; cnt < ARRAY_SIZE(LPC11U37_MEM_INFO); cnt++)
+	{
+		if (addr >= LPC11U37_MEM_INFO[cnt].start && 
+			addr < LPC11U37_MEM_INFO[cnt].end)
+		{
+			retval = LPC11U37_MEM_INFO[cnt].desc; 
+			break;
+		}
+	}
+
+	return retval;
+}
+
 static const uint8_t MAX_DECODE_STR_LEN = 128; //!< Maximum number of characters
 	//!< in decodedData string
 
@@ -1469,7 +1532,9 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
         break;
     }
 
-    addLogEntry(pContext, address, result, size, "Read Data");
+    char desc[MAX_DECODE_STR_LEN];
+    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (0x%08x --> 0x%08x)", __func__, getMemInfo(address), address, result);
+    addLogEntry(pContext, address, result, size, desc);
 
     return result;
 }
@@ -1574,7 +1639,9 @@ static void alignedMemWrite(PinkySimContext* pContext, uint32_t address, uint32_
         break;
     }
 
-    addLogEntry(pContext, address, value, size, "Write Data");
+    char desc[MAX_DECODE_STR_LEN];
+    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (0x%08x <-- 0x%08x)", __func__, getMemInfo(address), address, value);
+    addLogEntry(pContext, address, value, size, desc);
 }
 
 static int strhRegister(PinkySimContext* pContext, uint16_t instr)
