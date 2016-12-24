@@ -813,7 +813,7 @@ static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Adding Reg %d with value 0x%08x", __func__, fields.n, fields.imm);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1191,7 +1191,7 @@ static int cmpRegisterT1(PinkySimContext* pContext, uint16_t instr)
     updateNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d, complement of Reg %d, carry in 1", __func__, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1206,7 +1206,7 @@ static int cmnRegister(PinkySimContext* pContext, uint16_t instr)
     updateNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d, Reg %d, carry in 0", __func__, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1396,6 +1396,7 @@ static int movRegister(PinkySimContext* pContext, uint16_t instr)
 static int bx(PinkySimContext* pContext, uint16_t instr)
 {
     Fields fields = decodeRdn7and2to0_Rm6to3(instr);
+    uint32_t branchAddr;
 
     if ((instr & 0x7) != 0x0)
     {
@@ -1408,10 +1409,11 @@ static int bx(PinkySimContext* pContext, uint16_t instr)
         __throw(unpredictableException);
     }
 
-    bxWritePC(pContext, getReg(pContext, fields.m));
+    branchAddr = getReg(pContext, fields.m);
+    bxWritePC(pContext, branchAddr);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x", __func__, branchAddr);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1802,12 +1804,15 @@ static int ldrImmediateT1(PinkySimContext* pContext, uint16_t instr)
 {
     Fields   fields = decodeImm10to6_Rn5to3_Rt2to0(instr);
     uint32_t address;
+    uint32_t value;
 
     address = getReg(pContext, fields.n) + (fields.imm << 2);
-    setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
+    value = unalignedMemRead(pContext, address, 4);
+    setReg(pContext, fields.t, value);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
+	__func__, fields.t, value, address);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1894,12 +1899,15 @@ static int ldrImmediateT2(PinkySimContext* pContext, uint16_t instr)
     Fields   fields = decodeRt10to8_Imm7to0Shift2(instr);
     uint32_t n = SP;
     uint32_t address;
+    uint32_t value;
 
     address = getReg(pContext, n) + fields.imm;
-    setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
+    value = unalignedMemRead(pContext, address, 4);
+    setReg(pContext, fields.t, value);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
+	__func__, fields.t, value, address);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -2399,15 +2407,20 @@ static int svc(PinkySimContext* pContext, uint16_t instr)
 
 static int conditionalBranch(PinkySimContext* pContext, uint16_t instr)
 {
+    int32_t imm32 = (((int32_t)(instr & 0xFF)) << 24) >> 23;
+    uint32_t branchAddr = getReg(pContext, PC) + imm32;
+    char desc[MAX_DECODE_STR_LEN];
+
     if (conditionPassedForBranchInstr(pContext, instr))
     {
-        int32_t imm32 = (((int32_t)(instr & 0xFF)) << 24) >> 23;
-
-        branchWritePC(pContext, getReg(pContext, PC) + imm32);
+        branchWritePC(pContext, branchAddr);
+        snprintf(desc, ARRAY_SIZE(desc), "%s: Branching to 0x%08x", __func__, branchAddr);
+    }
+    else
+    {
+        snprintf(desc, ARRAY_SIZE(desc), "%s: Not branching to 0x%08x", __func__, branchAddr);
     }
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -2694,13 +2707,16 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     uint32_t i2 = (s ^ j2) ^ 1;
     uint32_t imm32 = ((int32_t)((s << 24) | (i1 << 23) | (i2 << 22) | (immHi << 12) | (immLo << 1)) << 7) >> 7;
     uint32_t nextInstrAddr;
+    uint32_t branchAddr;
 
     nextInstrAddr = getReg(pContext, PC);
     setReg(pContext, LR, nextInstrAddr | 1);
-    branchWritePC(pContext, getReg(pContext, PC) + imm32);
+    branchAddr = getReg(pContext, PC) + imm32;
+    branchWritePC(pContext, branchAddr);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x (Link Reg is 0x%08x)", 
+	__func__, nextInstrAddr | 1, branchAddr);
     addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
 
     return PINKYSIM_STEP_OK;
