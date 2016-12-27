@@ -504,7 +504,8 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: setReg %d to shiftResults.result = 0x%08x (shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1454,7 +1455,8 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
     blxWritePC(pContext, target);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set PC to 0x%08x. Set LR to 0x%08x", 
+	__func__, target, nextInstrAddr);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
