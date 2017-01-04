@@ -853,7 +853,8 @@ static int movImmediate(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x", 
+	__func__, fields.d, result);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1014,7 +1015,8 @@ static int andRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d & Reg %d)", 
+	__func__, fields.d, result, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1039,7 +1041,8 @@ static int eorRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d ^ Reg %d)", 
+	__func__, fields.d, result, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1222,7 +1225,8 @@ static int orrRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d | Reg %d)",
+	 __func__, fields.d, result, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1238,7 +1242,8 @@ static int mulRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d * Reg %d)",
+	 __func__, fields.d, result, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1263,7 +1268,8 @@ static int bicRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d & ~Reg %d)", 
+	__func__, fields.d, result, fields.n, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1278,7 +1284,8 @@ static int mvnRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZ(pContext, &fields, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (~Reg %d)", 
+	__func__, fields.d, result, fields.m);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
