@@ -499,13 +499,14 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
     Fields          fields = decodeImm10to6_Rm5to3_Rd2to0(instr);
     DecodedImmShift decodedShift = decodeImmshift(0x0, fields.imm);
     ShiftResults    shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.m);
 
-    shiftResults = shift_C(getReg(pContext, fields.m), SRType_LSL, decodedShift.n, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_LSL, decodedShift.n, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: setReg %d to shiftResults.result = 0x%08x (shiftResults.carryOut = 0x%08x)", 
-	__func__, fields.d, shiftResults.result, shiftResults.carryOut);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to left (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -705,12 +706,14 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
     Fields          fields = decodeImm10to6_Rm5to3_Rd2to0(instr);
     DecodedImmShift decodedShift = decodeImmshift(0x1, fields.imm);
     ShiftResults    shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.m);
 
-    shiftResults = shift_C(getReg(pContext, fields.m), SRType_LSR, decodedShift.n, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_LSR, decodedShift.n, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -721,12 +724,14 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
     Fields          fields = decodeImm10to6_Rm5to3_Rd2to0(instr);
     DecodedImmShift decodedShift = decodeImmshift(0x2, fields.imm);
     ShiftResults    shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.m);
 
-    shiftResults = shift_C(getReg(pContext, fields.m), SRType_ASR, decodedShift.n, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_ASR, decodedShift.n, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -736,12 +741,15 @@ static int addRegisterT1(PinkySimContext* pContext, uint16_t instr)
 {
     Fields fields = decodeRm8to6_Rn5to3_Rd2to0(instr);
     AddResults      addResults;
+    uint32_t add_op1 = getReg(pContext, fields.n);
+    uint32_t add_op2 = getReg(pContext, fields.m);
 
-    addResults = addWithCarry(getReg(pContext, fields.n), getReg(pContext, fields.m), 0);
+    addResults = addWithCarry(add_op1, add_op2, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) and Reg %d (0x%08x)", 
+	__func__, fields.n, add_op1, fields.m, add_op2);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -794,12 +802,15 @@ static int subRegister(PinkySimContext* pContext, uint16_t instr)
 {
     Fields fields = decodeRm8to6_Rn5to3_Rd2to0(instr);
     AddResults      addResults;
+    uint32_t sub_op1 = getReg(pContext, fields.n);
+    uint32_t sub_op2 = getReg(pContext, fields.m);
 
-    addResults = addWithCarry(getReg(pContext, fields.n), ~getReg(pContext, fields.m), 1);
+    addResults = addWithCarry(sub_op1, ~sub_op2, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
+	__func__, fields.n, sub_op1, fields.m, sub_op2);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -809,12 +820,14 @@ static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
 {
     Fields     fields = decodeImm8to6_Rn5to3_Rd2to0(instr);
     AddResults addResults;
+    uint32_t add_op1 = getReg(pContext, fields.n);
 
-    addResults = addWithCarry(getReg(pContext, fields.n), fields.imm, 0);
+    addResults = addWithCarry(add_op1, fields.imm, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Adding Reg %d with value 0x%08x", __func__, fields.n, fields.imm);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Adding Reg %d (0x%08x) with value 0x%08x", 
+	__func__, fields.n, add_op1, fields.imm);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -834,12 +847,14 @@ static int subImmediateT1(PinkySimContext* pContext, uint16_t instr)
 {
     Fields     fields = decodeImm8to6_Rn5to3_Rd2to0(instr);
     AddResults addResults;
+    uint32_t sub_op1 = getReg(pContext, fields.n);
 
-    addResults = addWithCarry(getReg(pContext, fields.n), ~fields.imm, 1);
+    addResults = addWithCarry(sub_op1, ~fields.imm, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus valid 0x%08x",
+	 __func__, fields.n, sub_op1, fields.imm);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -893,7 +908,8 @@ static int cmpImmediate(PinkySimContext* pContext, uint16_t instr)
     updateNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus 0x%08x", 
+	__func__, fields.n, getReg(pContext, fields.n), fields.imm);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -917,7 +933,8 @@ static int addImmediateT2(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) with 0x%08x", 
+	__func__, fields.n, getReg(pContext, fields.n), fields.imm);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -942,7 +959,8 @@ static int subImmediateT2(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus 0x%08x",
+	 __func__, fields.n, getReg(pContext, fields.n), fields.imm);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1053,13 +1071,15 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
     Fields       fields = decodeRm5to3_Rdn2to0(instr);
     uint32_t     shiftN;
     ShiftResults shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.n);
 
     shiftN = getReg(pContext, fields.m) & 0xFF;
-    shiftResults = shift_C(getReg(pContext, fields.n), SRType_LSL, shiftN, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_LSL, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1070,13 +1090,15 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
     Fields       fields = decodeRm5to3_Rdn2to0(instr);
     uint32_t     shiftN;
     ShiftResults shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.n);
 
     shiftN = getReg(pContext, fields.m) & 0xFF;
-    shiftResults = shift_C(getReg(pContext, fields.n), SRType_LSR, shiftN, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_LSR, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1087,13 +1109,15 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
     Fields       fields = decodeRm5to3_Rdn2to0(instr);
     uint32_t     shiftN;
     ShiftResults shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.n);
 
     shiftN = getReg(pContext, fields.m) & 0xFF;
-    shiftResults = shift_C(getReg(pContext, fields.n), SRType_ASR, shiftN, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_ASR, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1134,13 +1158,15 @@ static int rorRegister(PinkySimContext* pContext, uint16_t instr)
     Fields       fields = decodeRm5to3_Rdn2to0(instr);
     uint32_t     shiftN;
     ShiftResults shiftResults;
+    uint32_t value_to_shift = getReg(pContext, fields.n);
 
     shiftN = getReg(pContext, fields.m) & 0xFF;
-    shiftResults = shift_C(getReg(pContext, fields.n), SRType_ROR, shiftN, pContext->xPSR & APSR_C);
+    shiftResults = shift_C(value_to_shift, SRType_ROR, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) rotated by %d (Value of Reg %d) to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1195,7 +1221,8 @@ static int cmpRegisterT1(PinkySimContext* pContext, uint16_t instr)
     updateNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d, complement of Reg %d, carry in 1", __func__, fields.n, fields.m);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
+	__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1210,7 +1237,8 @@ static int cmnRegister(PinkySimContext* pContext, uint16_t instr)
     updateNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d, Reg %d, carry in 0", __func__, fields.n, fields.m);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) plus Reg %d (0x%08x)", 
+		__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1377,7 +1405,8 @@ static int cmpRegisterT2(PinkySimContext* pContext, uint16_t instr)
     updateNZCV(pContext, &fields, &addResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
+	__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1395,7 +1424,8 @@ static int movRegister(PinkySimContext* pContext, uint16_t instr)
         setReg(pContext, fields.d, result);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value from Reg %d (0x%08x)", 
+	__func__, fields.d, fields.m, result);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1605,7 +1635,8 @@ static int strRegister(PinkySimContext* pContext, uint16_t instr)
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to address 0x%08x (Reg %d (0x%08x) + Reg %d (0x%08x))",
+	 __func__, fields.t, getReg(pContext, fields.t), address, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1793,7 +1824,8 @@ static int strImmediateT1(PinkySimContext* pContext, uint16_t instr)
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to address 0x%08x (Reg %d (0x%08x) + 0x%08x)", 
+	__func__, fields.t, getReg(pContext, fields.t), address, fields.n, getReg(pContext, fields.n), (fields.imm << 2));
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -1897,7 +1929,8 @@ static int strImmediateT2(PinkySimContext* pContext, uint16_t instr)
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to 0x%08x", 
+	__func__, fields.t, getReg(pContext, fields.t), address);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -2480,7 +2513,8 @@ static int unconditionalBranch(PinkySimContext* pContext, uint16_t instr)
     branchWritePC(pContext, getReg(pContext, PC) + imm32);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x", 
+	__func__, pContext->newPC);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
