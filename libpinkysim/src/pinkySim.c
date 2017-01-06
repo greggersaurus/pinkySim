@@ -2377,7 +2377,8 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
     setReg(pContext, fields.n, getReg(pContext, fields.n) + 4 * bitCount(fields.registers));
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Start address is Reg %d (0x%08x). fields.registers = 0x%02x (for values written into mem). Reg %d += %d", 
+	__func__, fields.n, address, fields.registers, fields.n, 4 * bitCount(fields.registers));
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
@@ -2423,7 +2424,8 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
         setReg(pContext, fields.n, getReg(pContext, fields.n) + 4 * bitCount(fields.registers));
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Start address is Reg %d (0x%08x). fields.registers = 0x%02x (for loading with mem reads). Reg %d += %d if %d", 
+	__func__, fields.n, address, fields.registers, fields.n, 4 * bitCount(fields.registers), wback);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
