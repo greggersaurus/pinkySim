@@ -1574,7 +1574,7 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
     }
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (0x%08x --> 0x%08x)", __func__, getMemInfo(address), address, result);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (*0x%08x --> 0x%08x)", __func__, getMemInfo(address), address, result);
     addLogEntry(pContext, address, result, size, desc);
 
     return result;
@@ -1682,7 +1682,7 @@ static void alignedMemWrite(PinkySimContext* pContext, uint32_t address, uint32_
     }
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (0x%08x <-- 0x%08x)", __func__, getMemInfo(address), address, value);
+    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (*0x%08x = 0x%08x)", __func__, getMemInfo(address), address, value);
     addLogEntry(pContext, address, value, size, desc);
 }
 
