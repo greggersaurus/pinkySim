@@ -134,6 +134,8 @@ static const char* getMemInfo(uint32_t addr)
 static const uint8_t MAX_DECODE_STR_LEN = 128; //!< Maximum number of characters
 	//!< in decodedData string
 
+static uint32_t stepNum = 0;
+
 /**
  * Add entry into log so we can review execution later. Also useful for 
  *  determining sections of code if in raw binary format.
@@ -173,6 +175,8 @@ static void addLogEntry(const PinkySimContext* context, uint32_t offset,
 			fprintf(runLogFile, " ");
 		}
 		fprintf(runLogFile, "%s, ", tmp_str);
+
+		fprintf(runLogFile, "  Step Num, ");
 
 		fprintf(runLogFile, "Current PC, ");
 		fprintf(runLogFile, "   Next PC, ");
@@ -216,6 +220,8 @@ static void addLogEntry(const PinkySimContext* context, uint32_t offset,
 		fprintf(runLogFile, " ");
 	}
 	fprintf(runLogFile, "%s, ", decodedData);
+
+	fprintf(runLogFile, "  % 8d, ", stepNum);
 
 	fprintf(runLogFile, "0x%08x, ", context->pc);
 	fprintf(runLogFile, "0x%08x, ", context->newPC);
@@ -402,6 +408,8 @@ int pinkySimStep(PinkySimContext* pContext)
 
     if (!(pContext->xPSR & EPSR_T))
         return PINKYSIM_STEP_HARDFAULT;
+
+    stepNum++;
 
     __try
     {
