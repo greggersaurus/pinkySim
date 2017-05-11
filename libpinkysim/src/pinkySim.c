@@ -513,7 +513,7 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to left (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to left (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
@@ -720,7 +720,7 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
@@ -738,7 +738,7 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
@@ -1086,7 +1086,7 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
@@ -1105,7 +1105,7 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
@@ -1124,7 +1124,7 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to right (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
@@ -1173,7 +1173,7 @@ static int rorRegister(PinkySimContext* pContext, uint16_t instr)
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
     char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) rotated by %d (Value of Reg %d) to right (shiftResults.result = 0x%08x, shiftResults.carryOut = 0x%08x)", 
+    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) rotated by %d (Value of Reg %d) to right (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
