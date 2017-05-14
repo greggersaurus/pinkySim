@@ -108,6 +108,7 @@ typedef struct PinkySimContext
 #define PINKYSIM_RUN_SINGLESTEP     9   /* pinkySimRun() callback signalled single step. */
 
 
+void enableLog(const char* chipType);
 int pinkySimStep(PinkySimContext* pContext);
 int pinkySimRun(PinkySimContext* pContext, int (*callback)(PinkySimContext*));
 

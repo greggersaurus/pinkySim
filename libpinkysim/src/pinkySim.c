@@ -75,9 +75,14 @@ typedef struct MemInfoEntry
 	const char* desc; //!< Description of the memory seciton.
 } MemInfoEntry;
 
+// Used to (potentially) give additional details on memory sections
+static const struct MemInfoEntry* memInfo = NULL;
+// Number of entires in memInfo
+static uint32_t memInfoSize = 0;
 
-//TODO: Explicitely add in all reserved sections?
 // Memory sections specific to NXP LPC11U37 Chip
+//  Not to be accessed directly, but rather an option that memInfo can be set to.
+//  TODO: encapsulate in own c file?
 static const struct MemInfoEntry LPC11U37_MEM_INFO[] = 
 {
 	{0x00000000, 0x00020000, "128 kB on-chip flash"}, 	// --flash 0 131072
@@ -118,12 +123,11 @@ static const char* getMemInfo(uint32_t addr)
 	const char* retval = "Unknown";
 	size_t cnt = 0;
 
-	for (cnt = 0; cnt < ARRAY_SIZE(LPC11U37_MEM_INFO); cnt++)
+	for (cnt = 0; cnt < memInfoSize; cnt++)
 	{
-		if (addr >= LPC11U37_MEM_INFO[cnt].start && 
-			addr < LPC11U37_MEM_INFO[cnt].end)
+		if (addr >= memInfo[cnt].start && addr < memInfo[cnt].end)
 		{
-			retval = LPC11U37_MEM_INFO[cnt].desc; 
+			retval = memInfo[cnt].desc; 
 			break;
 		}
 	}
@@ -135,6 +139,62 @@ static const uint8_t MAX_DECODE_STR_LEN = 128; //!< Maximum number of characters
 	//!< in decodedData string
 
 static uint32_t stepNum = 0;
+
+static FILE* runLogFile = NULL;
+
+/**
+ * Enable logging for current simulation.
+ *
+ * \param[in] chipType Chip Type info that is used to load memory info for
+ * 	logging (i.e. additional details for accessed memory regions).
+ */
+void enableLog(const char* chipType)
+{
+	char tmp_str[128];
+	time_t rawtime;
+	size_t cnt = 0;
+
+	if (!strcmp("LPC11U37", chipType))
+	{
+		memInfo = LPC11U37_MEM_INFO;
+		memInfoSize = ARRAY_SIZE(LPC11U37_MEM_INFO);
+	}
+
+	time(&rawtime);
+	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "runLogFile_%020llu.csv", 
+		(uint64_t)rawtime);
+	runLogFile = fopen(tmp_str, "w");
+
+	// Add first entry, which is header describing each column
+	fprintf(runLogFile, " Entry Num, ");
+	fprintf(runLogFile, "File Offset, ");
+	fprintf(runLogFile, "  Raw Data, ");
+
+	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "Decoded Raw Data");
+	for (cnt = strnlen(tmp_str, ARRAY_SIZE(tmp_str)); cnt < ARRAY_SIZE(tmp_str); cnt++)
+	{
+		fprintf(runLogFile, " ");
+	}
+	fprintf(runLogFile, "%s, ", tmp_str);
+
+	fprintf(runLogFile, "  Step Num, ");
+
+	fprintf(runLogFile, "Current PC, ");
+	fprintf(runLogFile, "   Next PC, ");
+	fprintf(runLogFile, "        SP, ");
+	fprintf(runLogFile, "        LR, ");
+	fprintf(runLogFile, "      XPSR, ");
+	fprintf(runLogFile, "   PRIMASK, ");
+	fprintf(runLogFile, "   CONTROL, ");
+
+	for (cnt = 0; cnt < 13; cnt++)	
+	{
+		fprintf(runLogFile, "              Register % 2d, ", 
+			(int)cnt);
+	}
+
+	fprintf(runLogFile, "\n");
+}
 
 /**
  * Add entry into log so we can review execution later. Also useful for 
@@ -152,48 +212,11 @@ static void addLogEntry(const PinkySimContext* context, uint32_t offset,
 	uint32_t rawData, uint32_t size, const char* decodedData)
 {
 	static uint32_t entryNum = 0;
-	static FILE* runLogFile = NULL;
 	size_t cnt = 0;
 
+	// Check if logging was enabled
 	if (!runLogFile)
-	{
-		char tmp_str[128];
-		time_t rawtime;
-		time(&rawtime);
-		snprintf(tmp_str, ARRAY_SIZE(tmp_str), "runLogFile_%020llu.csv", 
-			(uint64_t)rawtime);
-		runLogFile = fopen(tmp_str, "w");
-
-		// Add first entry, which is header describing each column
-		fprintf(runLogFile, " Entry Num, ");
-		fprintf(runLogFile, "File Offset, ");
-		fprintf(runLogFile, "  Raw Data, ");
- 
-		snprintf(tmp_str, ARRAY_SIZE(tmp_str), "Decoded Raw Data");
-		for (cnt = strnlen(tmp_str, ARRAY_SIZE(tmp_str)); cnt < ARRAY_SIZE(tmp_str); cnt++)
-		{
-			fprintf(runLogFile, " ");
-		}
-		fprintf(runLogFile, "%s, ", tmp_str);
-
-		fprintf(runLogFile, "  Step Num, ");
-
-		fprintf(runLogFile, "Current PC, ");
-		fprintf(runLogFile, "   Next PC, ");
-		fprintf(runLogFile, "        SP, ");
-		fprintf(runLogFile, "        LR, ");
-		fprintf(runLogFile, "      XPSR, ");
-		fprintf(runLogFile, "   PRIMASK, ");
-		fprintf(runLogFile, "   CONTROL, ");
-	
-		for (cnt = 0; cnt < ARRAY_SIZE(context->R); cnt++)	
-		{
-			fprintf(runLogFile, "              Register % 2d, ", 
-				(int)cnt);
-		}
-
-		fprintf(runLogFile, "\n");
-	}
+		return;
 
 	fprintf(runLogFile, "% 10d, ", entryNum);
 	fprintf(runLogFile, " 0x%08x, ", offset);

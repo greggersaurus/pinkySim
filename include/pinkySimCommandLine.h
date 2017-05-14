@@ -29,6 +29,7 @@ typedef struct pinkySimCommandLine
     int          argIndexOfImageFilename;
     uint32_t     coverageRestrictPathCount;
     uint16_t     gdbPort;
+    const char*  logChipType; 
 } pinkySimCommandLine;
 
 
