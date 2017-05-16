@@ -12,6 +12,7 @@
 */
 #include <assert.h>
 #include <common.h>
+#include <MallocFailureInject.h>
 #include <pinkySim.h>
 
 #include <string.h>
@@ -143,12 +144,12 @@ static uint32_t stepNum = 0;
 static FILE* runLogFile = NULL;
 
 /**
- * Enable logging for current simulation.
+ * Enable execution logging for current simulation.
  *
  * \param[in] chipType Chip Type info that is used to load memory info for
  * 	logging (i.e. additional details for accessed memory regions).
  */
-void enableLog(const char* chipType)
+void enableLogExe(const char* chipType)
 {
 	char tmp_str[128];
 	time_t rawtime;
@@ -194,6 +195,114 @@ void enableLog(const char* chipType)
 	}
 
 	fprintf(runLogFile, "\n");
+}
+
+typedef enum ClassificationType
+{
+	NOT_CLASSIFIED = 0,	
+        DATA_16_BIT,
+	DATA_32_BIT_HI,
+	DATA_32_BIT_LO,
+	INST_16_BIT,
+	INST_32_BIT_HI,
+	INST_32_BIT_LO,
+} ClassificationType;
+
+typedef struct ClassificationEntry
+{
+	ClassificationType type; //!< Descibes 
+	const char* desc; //!< Description of the memory seciton.
+	uint32_t rawVal;
+} ClassificationEntry;
+
+static uint32_t disassembleStartAddr = 0;
+static uint32_t disassembleEndAddr = 0;
+static ClassificationEntry* classificationMap = NULL;
+static uint32_t classificationMapSize = 0;
+
+/**
+ * Enable creation of disassembly for each instruction and memory access 
+ *  executed in specified memory range.
+ *
+ * \param baseAddress The base address of what accesses to disassemble (i.e.
+ *	where firmware is stored in memory).
+ * \param size Size in bytes of memory to disassemble (i.e. size of firmware
+ * 	file loaded).
+ *
+ * \return None.
+ */
+void enableLogDisassemble(uint32_t baseAddress, uint32_t size)
+{
+	disassembleStartAddr = baseAddress;
+	disassembleEndAddr = baseAddress + size;
+	classificationMapSize = size/2;
+	classificationMap = (ClassificationEntry*)malloc(classificationMapSize 
+		* sizeof(ClassificationEntry));
+	memset(classificationMap, 0, sizeof(*classificationMap));
+}
+
+/**
+ * Print currently currently classification of instructions (i.e. disassembly 
+ *  of instructions and memory accesses that have been executed).
+ *
+ * \return.
+ */
+void printLogDisassemble()
+{
+	char tmp_str[128];
+	time_t rawtime;
+	uint32_t cnt = 0;
+	FILE* file = NULL;
+
+	if (!classificationMap)
+	{
+		return;
+	}
+
+	time(&rawtime);
+	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "disassembleLogFile_%020llu.csv", 
+		(uint64_t)rawtime);
+	file = fopen(tmp_str, "w");
+	if (!file)
+	{
+		printf("Error creating file %s.\n", tmp_str);
+		printf("Cannot output disassembly.\n");
+		return;
+	}
+
+	//TODO: special print based if chip is set for RESET,NMI section? Coordinate setting chip with logging?
+
+	for (cnt = 0; cnt < classificationMapSize; cnt++)
+	{
+		uint32_t offset = disassembleStartAddr + 2*cnt;
+
+		switch (classificationMap[cnt].type)
+		{
+		case DATA_16_BIT:
+			fprintf(file, "0x%08x:     0x%04x, DATA\n", offset, classificationMap[cnt].rawVal);
+			break;
+
+		case DATA_32_BIT_HI:
+			// Full word printed for DATA_32_BIT_LO
+			continue;
+
+		case DATA_32_BIT_LO:
+			fprintf(file, "0x%08x: 0x%08x, DATA\n", offset, classificationMap[cnt].rawVal);
+			break;
+
+		case INST_16_BIT:
+		case INST_32_BIT_HI:
+		case INST_32_BIT_LO:
+			fprintf(file, "0x%08x: INSTRUCTION\n", offset);
+			break;
+
+		default:
+			fprintf(file, "0x%08x: UNKNOWN\n", offset);
+			break;
+		}
+	}
+
+	fclose(file);
 }
 
 /**
@@ -1602,6 +1711,23 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
     case 4:
         result = IMemory_Read32(pContext->pMemory, address);
         break;
+    }
+
+    if (classificationMap && address >= disassembleStartAddr && address < disassembleEndAddr)
+    {
+       classificationMap[address/2].rawVal = result;
+
+       switch (size)
+       {
+           case 1:
+           case 2:
+               classificationMap[address/2].type = DATA_16_BIT;
+               break;
+           case 4:
+               classificationMap[address/2].type = DATA_32_BIT_LO;
+               classificationMap[address/2+1].type = DATA_32_BIT_HI;
+               break;
+       } 
     }
 
     char desc[MAX_DECODE_STR_LEN];
