@@ -14,9 +14,7 @@
 #include <common.h>
 #include <MallocFailureInject.h>
 #include <pinkySim.h>
-
-#include <string.h>
-#include <time.h>
+#include <pinkySimLogExe.h>
 
 /* Fields decoded from instructions. */
 typedef struct Fields
@@ -61,319 +59,6 @@ typedef struct AddResults
     int      carryOut;
     int      overflow;
 } AddResults;
-
-//typedef struct MemInfo
-
-inline static uint32_t to32BitInst(uint16_t instr1, uint16_t instr2)
-{
-    return (instr2<<16 | instr1);
-}
-
-typedef struct MemInfoEntry
-{
-	uint32_t start; //!< Base address for the memory section
-	uint32_t end; //!< Non-inclusive end address for memory section.
-	const char* desc; //!< Description of the memory seciton.
-} MemInfoEntry;
-
-// Used to (potentially) give additional details on memory sections
-static const struct MemInfoEntry* memInfo = NULL;
-// Number of entires in memInfo
-static uint32_t memInfoSize = 0;
-
-// Memory sections specific to NXP LPC11U37 Chip
-//  Not to be accessed directly, but rather an option that memInfo can be set to.
-//  TODO: encapsulate in own c file?
-static const struct MemInfoEntry LPC11U37_MEM_INFO[] = 
-{
-	{0x00000000, 0x00020000, "128 kB on-chip flash"}, 	// --flash 0 131072
-	{0x10000000, 0x10002000, "8 kB SRAM0"}, 		// --ram 268435456 8192
-	{0x1FFF0000, 0x1FFF4000, "16 kB boot ROM"}, 		// --flash 536805376 16384
-	{0x20000000, 0x20000800, "2 kB SRAM1"}, 		// --ram 536870912 2048
-	{0x20004000, 0x20004800, "2 kB USB SRAM"},		// --ram 536887296 2048
-	{0x40000000, 0x40004000, "I2C-bus"},			// --ram 1073741824 16384
-	{0x40004000, 0x40008000, "WWDT"},			// --ram 1073758208 16384
-	{0x40008000, 0x4000C000, "USART/SMART CARD"},		// --ram 1073774592 16384
-	{0x4000C000, 0x40010000, "16-bit counter/timer 0"},	// --ram 1073790976 16384
-	{0x40010000, 0x40014000, "16-bit counter/timer 1"},	// --ram 1073807360 16384
-	{0x40014000, 0x40018000, "32-bit counter/timer 0"},	// --ram 1073823744 16384
-	{0x40018000, 0x4001C000, "32-bit counter/timer 1"},	// --ram 1073840128 16384
-	{0x4001C000, 0x40020000, "ADC"},			// --ram 1073856512 16384
-	{0x40038000, 0x4003C000, "PMU"},			// --ram 1073971200 16384
-	{0x4003C000, 0x40040000, "flash/EEPROM controller"},	// --ram 1073987584 16384
-	{0x40040000, 0x40044000, "SSPO"},			// --ram 1074003968 16384
-	{0x40044000, 0x40048000, "IOCON"},			// --ram 1074020352 16384
-	{0x40048000, 0x4004C000, "system control"},		// --ram 1074036736 16384
-	{0x4004C000, 0x40050000, "GPIO interrupts"},		// --ram 1074053120 16384
-	{0x40058000, 0x4005C000, "SSP1"},			// --ram 1074102272 16384
-	{0x4005C000, 0x40060000, "GPIO GROUP0 INT"},		// --ram 1074118656 16384
-	{0x40060000, 0x40064000, "GPIO GROUP1 INT"},		// --ram 1074135040 16384
-	{0x40080000, 0x40084000, "USB"},			// --ram 1074266112 16384
-	{0x50000000, 0x50004000, "GPIO"},			// --ram 1342177280 16484
-	{0xE0000000, 0xE0100000, "private peripheral bus"},	// --ram 3758096384 1048576
-	{0xE0100000, 0xFFFFFFFF, "reserved"}
-};
-
-/**
- * \param addr Address to get description of.
- *
- * \return Description of given memory that given address falls under.
- */
-static const char* getMemInfo(uint32_t addr)
-{
-	const char* retval = "Unknown";
-	size_t cnt = 0;
-
-	for (cnt = 0; cnt < memInfoSize; cnt++)
-	{
-		if (addr >= memInfo[cnt].start && addr < memInfo[cnt].end)
-		{
-			retval = memInfo[cnt].desc; 
-			break;
-		}
-	}
-
-	return retval;
-}
-
-static const uint8_t MAX_DECODE_STR_LEN = 128; //!< Maximum number of characters
-	//!< in decodedData string
-
-static uint32_t stepNum = 0;
-
-static FILE* runLogFile = NULL;
-
-/**
- * Enable execution logging for current simulation.
- *
- * \param[in] chipType Chip Type info that is used to load memory info for
- * 	logging (i.e. additional details for accessed memory regions).
- */
-void enableLogExe(const char* chipType)
-{
-	char tmp_str[128];
-	time_t rawtime;
-	size_t cnt = 0;
-
-	if (!strcmp("LPC11U37", chipType))
-	{
-		memInfo = LPC11U37_MEM_INFO;
-		memInfoSize = ARRAY_SIZE(LPC11U37_MEM_INFO);
-	}
-
-	time(&rawtime);
-	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "runLogFile_%020llu.csv", 
-		(uint64_t)rawtime);
-	runLogFile = fopen(tmp_str, "w");
-
-	// Add first entry, which is header describing each column
-	fprintf(runLogFile, " Entry Num, ");
-	fprintf(runLogFile, "File Offset, ");
-	fprintf(runLogFile, "  Raw Data, ");
-
-	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "Decoded Raw Data");
-	for (cnt = strnlen(tmp_str, ARRAY_SIZE(tmp_str)); cnt < ARRAY_SIZE(tmp_str); cnt++)
-	{
-		fprintf(runLogFile, " ");
-	}
-	fprintf(runLogFile, "%s, ", tmp_str);
-
-	fprintf(runLogFile, "  Step Num, ");
-
-	fprintf(runLogFile, "Current PC, ");
-	fprintf(runLogFile, "   Next PC, ");
-	fprintf(runLogFile, "        SP, ");
-	fprintf(runLogFile, "        LR, ");
-	fprintf(runLogFile, "      XPSR, ");
-	fprintf(runLogFile, "   PRIMASK, ");
-	fprintf(runLogFile, "   CONTROL, ");
-
-	for (cnt = 0; cnt < 13; cnt++)	
-	{
-		fprintf(runLogFile, "              Register % 2d, ", 
-			(int)cnt);
-	}
-
-	fprintf(runLogFile, "\n");
-}
-
-typedef enum ClassificationType
-{
-	NOT_CLASSIFIED = 0,	
-        DATA_16_BIT,
-	DATA_32_BIT_HI,
-	DATA_32_BIT_LO,
-	INST_16_BIT,
-	INST_32_BIT_HI,
-	INST_32_BIT_LO,
-} ClassificationType;
-
-typedef struct ClassificationEntry
-{
-	ClassificationType type; //!< Descibes 
-	const char* desc; //!< Description of the memory seciton.
-	uint32_t rawVal;
-} ClassificationEntry;
-
-static uint32_t disassembleStartAddr = 0;
-static uint32_t disassembleEndAddr = 0;
-static ClassificationEntry* classificationMap = NULL;
-static uint32_t classificationMapSize = 0;
-
-/**
- * Enable creation of disassembly for each instruction and memory access 
- *  executed in specified memory range.
- *
- * \param baseAddress The base address of what accesses to disassemble (i.e.
- *	where firmware is stored in memory).
- * \param size Size in bytes of memory to disassemble (i.e. size of firmware
- * 	file loaded).
- *
- * \return None.
- */
-void enableLogDisassemble(uint32_t baseAddress, uint32_t size)
-{
-	disassembleStartAddr = baseAddress;
-	disassembleEndAddr = baseAddress + size;
-	classificationMapSize = size/2;
-	classificationMap = (ClassificationEntry*)malloc(classificationMapSize 
-		* sizeof(ClassificationEntry));
-	memset(classificationMap, 0, sizeof(*classificationMap));
-}
-
-/**
- * Print currently currently classification of instructions (i.e. disassembly 
- *  of instructions and memory accesses that have been executed).
- *
- * \return.
- */
-void printLogDisassemble()
-{
-	char tmp_str[128];
-	time_t rawtime;
-	uint32_t cnt = 0;
-	FILE* file = NULL;
-
-	if (!classificationMap)
-	{
-		return;
-	}
-
-	time(&rawtime);
-	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "disassembleLogFile_%020llu.csv", 
-		(uint64_t)rawtime);
-	file = fopen(tmp_str, "w");
-	if (!file)
-	{
-		printf("Error creating file %s.\n", tmp_str);
-		printf("Cannot output disassembly.\n");
-		return;
-	}
-
-	//TODO: special print based if chip is set for RESET,NMI section? Coordinate setting chip with logging?
-
-	for (cnt = 0; cnt < classificationMapSize; cnt++)
-	{
-		uint32_t offset = disassembleStartAddr + 2*cnt;
-
-		switch (classificationMap[cnt].type)
-		{
-		case DATA_16_BIT:
-			fprintf(file, "0x%08x:     0x%04x, DATA\n", offset, classificationMap[cnt].rawVal);
-			break;
-
-		case DATA_32_BIT_HI:
-			// Full word printed for DATA_32_BIT_LO
-			continue;
-
-		case DATA_32_BIT_LO:
-			fprintf(file, "0x%08x: 0x%08x, DATA\n", offset, classificationMap[cnt].rawVal);
-			break;
-
-		case INST_16_BIT:
-		case INST_32_BIT_HI:
-		case INST_32_BIT_LO:
-			fprintf(file, "0x%08x: INSTRUCTION\n", offset);
-			break;
-
-		default:
-			fprintf(file, "0x%08x: UNKNOWN\n", offset);
-			break;
-		}
-	}
-
-	fclose(file);
-}
-
-/**
- * Add entry into log so we can review execution later. Also useful for 
- *  determining sections of code if in raw binary format.
- *
- * \param[in] context Current processor context (reg values, etc.)
- * \param offset Memory offset being affected.
- * \param rawData Raw Data at memory offset.
- * \param size Number of valid bytes in rawData.
- * \param[in] decodedData Describes data intepretation (i.e. decoded instruction)
- *
- * \return None.
- */
-static void addLogEntry(const PinkySimContext* context, uint32_t offset, 
-	uint32_t rawData, uint32_t size, const char* decodedData)
-{
-	static uint32_t entryNum = 0;
-	size_t cnt = 0;
-
-	// Check if logging was enabled
-	if (!runLogFile)
-		return;
-
-	fprintf(runLogFile, "% 10d, ", entryNum);
-	fprintf(runLogFile, " 0x%08x, ", offset);
-	switch(size)
-	{
-		case 1:
-			fprintf(runLogFile, "      0x%02x, ", 0xFF&rawData);
-			break;
-		case 2:
-			fprintf(runLogFile, "    0x%04x, ", 0xFFFF&rawData);
-			break;
-		case 4:
-			fprintf(runLogFile, "0x%08x, ", 0xFFFFFFFF&rawData);
-			break;
-		default:
-			fprintf(runLogFile, "Exception: invalidArgumentException for size %d", size);
-			fflush(runLogFile);
-			__throw(invalidArgumentException);
-			break;
-	}
-
-	for (cnt = strnlen(decodedData, MAX_DECODE_STR_LEN); cnt < MAX_DECODE_STR_LEN; cnt++)
-	{
-		fprintf(runLogFile, " ");
-	}
-	fprintf(runLogFile, "%s, ", decodedData);
-
-	fprintf(runLogFile, "  % 8d, ", stepNum);
-
-	fprintf(runLogFile, "0x%08x, ", context->pc);
-	fprintf(runLogFile, "0x%08x, ", context->newPC);
-	fprintf(runLogFile, "0x%08x, ", context->spMain);
-	fprintf(runLogFile, "0x%08x, ", context->lr);
-	fprintf(runLogFile, "0x%08x, ", context->xPSR);
-	fprintf(runLogFile, "0x%08x, ", context->PRIMASK);
-	fprintf(runLogFile, "0x%08x, ", context->CONTROL);
-
-	for (cnt = 0; cnt < ARRAY_SIZE(context->R); cnt++)	
-	{
-		fprintf(runLogFile, "0x%08x (% 12d), ", context->R[cnt], context->R[cnt]);
-	}
-
-	fprintf(runLogFile, "\n");
-
-	fflush(runLogFile);
-
-	entryNum++;
-}
 
 /* Function Prototypes */
 static int executeInstruction16(PinkySimContext* pContext, uint16_t instr);
@@ -541,7 +226,7 @@ int pinkySimStep(PinkySimContext* pContext)
     if (!(pContext->xPSR & EPSR_T))
         return PINKYSIM_STEP_HARDFAULT;
 
-    stepNum++;
+    pContext->stepNum++;
 
     __try
     {
@@ -644,10 +329,8 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
     shiftResults = shift_C(value_to_shift, SRType_LSL, decodedShift.n, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to left (result = 0x%08x, carryOut = 0x%08x)", 
+    addLogExeInstr16(pContext, instr, "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to left (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -851,10 +534,11 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
     shiftResults = shift_C(value_to_shift, SRType_LSR, decodedShift.n, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (result = 0x%08x, carryOut = 0x%08x)", 
+/*
+    addLogEntry(pContext, pContext->pc, instr, 2, 
+        "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
 
     return PINKYSIM_STEP_OK;
 }
@@ -869,10 +553,11 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
     shiftResults = shift_C(value_to_shift, SRType_ASR, decodedShift.n, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (result = 0x%08x, carryOut = 0x%08x)", 
+/*
+    addLogEntry(pContext, pContext->pc, instr, 2,
+        "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d to right (result = 0x%08x, carryOut = 0x%08x)", 
 	__func__, fields.d, fields.m, value_to_shift, decodedShift.n, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
 
     return PINKYSIM_STEP_OK;
 }
@@ -887,10 +572,12 @@ static int addRegisterT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(add_op1, add_op2, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
+/*
     char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) and Reg %d (0x%08x)", 
 	__func__, fields.n, add_op1, fields.m, add_op2);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
 
     return PINKYSIM_STEP_OK;
 }
@@ -948,12 +635,12 @@ static int subRegister(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(sub_op1, ~sub_op2, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
-	__func__, fields.n, sub_op1, fields.m, sub_op2);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
+  	__func__, fields.n, sub_op1, fields.m, sub_op2);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
@@ -965,12 +652,12 @@ static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(add_op1, fields.imm, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Adding Reg %d (0x%08x) with value 0x%08x", 
-	__func__, fields.n, add_op1, fields.imm);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Adding Reg %d (0x%08x) with value 0x%08x", 
+  	__func__, fields.n, add_op1, fields.imm);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeImm8to6_Rn5to3_Rd2to0(uint32_t instr)
@@ -992,12 +679,12 @@ static int subImmediateT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(sub_op1, ~fields.imm, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus valid 0x%08x",
-	 __func__, fields.n, sub_op1, fields.imm);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus valid 0x%08x",
+  	 __func__, fields.n, sub_op1, fields.imm);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int movImmediate(PinkySimContext* pContext, uint16_t instr)
@@ -1007,12 +694,12 @@ static int movImmediate(PinkySimContext* pContext, uint16_t instr)
 
     updateRdAndNZ(pContext, &fields, result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x", 
-	__func__, fields.d, result);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x", 
+  	__func__, fields.d, result);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static void updateRdAndNZ(PinkySimContext* pContext, Fields* pFields, uint32_t results)
@@ -1047,12 +734,12 @@ static int cmpImmediate(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, fields.n), ~fields.imm, 1);
     updateNZCV(pContext, &fields, &addResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus 0x%08x", 
-	__func__, fields.n, getReg(pContext, fields.n), fields.imm);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus 0x%08x", 
+  	__func__, fields.n, getReg(pContext, fields.n), fields.imm);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeRn10to8_Imm7to0(uint32_t instr)
@@ -1072,12 +759,12 @@ static int addImmediateT2(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, fields.n), fields.imm, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) with 0x%08x", 
-	__func__, fields.n, getReg(pContext, fields.n), fields.imm);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) with 0x%08x", 
+  	__func__, fields.n, getReg(pContext, fields.n), fields.imm);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeRdn10to8_Imm7to0(uint32_t instr)
@@ -1098,12 +785,12 @@ static int subImmediateT2(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, fields.n), ~fields.imm, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus 0x%08x",
-	 __func__, fields.n, getReg(pContext, fields.n), fields.imm);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus 0x%08x",
+  	 __func__, fields.n, getReg(pContext, fields.n), fields.imm);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int dataProcessing(PinkySimContext* pContext, uint16_t instr)
@@ -1172,12 +859,12 @@ static int andRegister(PinkySimContext* pContext, uint16_t instr)
     result = getReg(pContext, fields.n) & getReg(pContext, fields.m);
     updateRdAndNZ(pContext, &fields, result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d & Reg %d)", 
-	__func__, fields.d, result, fields.n, fields.m);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d & Reg %d)", 
+  	__func__, fields.d, result, fields.n, fields.m);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeRm5to3_Rdn2to0(uint32_t instr)
@@ -1198,12 +885,12 @@ static int eorRegister(PinkySimContext* pContext, uint16_t instr)
     result = getReg(pContext, fields.n) ^ getReg(pContext, fields.m);
     updateRdAndNZ(pContext, &fields, result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d ^ Reg %d)", 
-	__func__, fields.d, result, fields.n, fields.m);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d ^ Reg %d)", 
+  	__func__, fields.d, result, fields.n, fields.m);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int lslRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1217,12 +904,12 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
     shiftResults = shift_C(value_to_shift, SRType_LSL, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (result = 0x%08x, carryOut = 0x%08x)", 
-	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (result = 0x%08x, carryOut = 0x%08x)", 
+  	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1236,12 +923,12 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
     shiftResults = shift_C(value_to_shift, SRType_LSR, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (result = 0x%08x, carryOut = 0x%08x)", 
-	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to left (result = 0x%08x, carryOut = 0x%08x)", 
+  	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int asrRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1255,12 +942,12 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
     shiftResults = shift_C(value_to_shift, SRType_ASR, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to right (result = 0x%08x, carryOut = 0x%08x)", 
-	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) shifted by %d (Value of Reg %d) to right (result = 0x%08x, carryOut = 0x%08x)", 
+  	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int adcRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1270,12 +957,12 @@ static int adcRegister(PinkySimContext* pContext, uint16_t instr)
 
     addResults = addWithCarry(getReg(pContext, fields.n), getReg(pContext, fields.m), pContext->xPSR & APSR_C);
     updateRdAndNZCV(pContext, &fields, &addResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int sbcRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1285,12 +972,12 @@ static int sbcRegister(PinkySimContext* pContext, uint16_t instr)
 
     addResults = addWithCarry(getReg(pContext, fields.n), ~getReg(pContext, fields.m), pContext->xPSR & APSR_C);
     updateRdAndNZCV(pContext, &fields, &addResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int rorRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1303,12 +990,12 @@ static int rorRegister(PinkySimContext* pContext, uint16_t instr)
     shiftN = getReg(pContext, fields.m) & 0xFF;
     shiftResults = shift_C(value_to_shift, SRType_ROR, shiftN, pContext->xPSR & APSR_C);
     updateRdAndNZC(pContext, &fields, &shiftResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) rotated by %d (Value of Reg %d) to right (result = 0x%08x, carryOut = 0x%08x)", 
-	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d to Reg %d (0x%08x) rotated by %d (Value of Reg %d) to right (result = 0x%08x, carryOut = 0x%08x)", 
+  	__func__, fields.d, fields.n, value_to_shift, shiftN, fields.m, shiftResults.result, shiftResults.carryOut);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1319,12 +1006,12 @@ static int tstRegister(PinkySimContext* pContext, uint16_t instr)
 
     result = getReg(pContext, fields.n) & getReg(pContext, fields.m);
     updateNZ(pContext, &fields, result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int rsbRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1335,12 +1022,12 @@ static int rsbRegister(PinkySimContext* pContext, uint16_t instr)
 
     addResults = addWithCarry(~getReg(pContext, fields.n), imm32, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeRn5to3_Rd2to0(uint32_t instr)
@@ -1359,12 +1046,12 @@ static int cmpRegisterT1(PinkySimContext* pContext, uint16_t instr)
 
     addResults = addWithCarry(getReg(pContext, fields.n), ~getReg(pContext, fields.m), 1);
     updateNZCV(pContext, &fields, &addResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
-	__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
+  	__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1375,12 +1062,12 @@ static int cmnRegister(PinkySimContext* pContext, uint16_t instr)
 
     addResults = addWithCarry(getReg(pContext, fields.n), getReg(pContext, fields.m), 0);
     updateNZCV(pContext, &fields, &addResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) plus Reg %d (0x%08x)", 
-		__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Add Reg %d (0x%08x) plus Reg %d (0x%08x)", 
+  		__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1391,12 +1078,12 @@ static int orrRegister(PinkySimContext* pContext, uint16_t instr)
 
     result = getReg(pContext, fields.n) | getReg(pContext, fields.m);
     updateRdAndNZ(pContext, &fields, result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d | Reg %d)",
-	 __func__, fields.d, result, fields.n, fields.m);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d | Reg %d)",
+  	 __func__, fields.d, result, fields.n, fields.m);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1408,12 +1095,12 @@ static int mulRegister(PinkySimContext* pContext, uint16_t instr)
     uint32_t  result = operand1 * operand2;
 
     updateRdAndNZ(pContext, &fields, result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d * Reg %d)",
-	 __func__, fields.d, result, fields.n, fields.m);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d * Reg %d)",
+  	 __func__, fields.d, result, fields.n, fields.m);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1434,12 +1121,12 @@ static int bicRegister(PinkySimContext* pContext, uint16_t instr)
 
     result = getReg(pContext, fields.n) & ~getReg(pContext, fields.m);
     updateRdAndNZ(pContext, &fields, result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d & ~Reg %d)", 
-	__func__, fields.d, result, fields.n, fields.m);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (Reg %d & ~Reg %d)", 
+  	__func__, fields.d, result, fields.n, fields.m);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1450,12 +1137,12 @@ static int mvnRegister(PinkySimContext* pContext, uint16_t instr)
 
     result = ~getReg(pContext, fields.m);
     updateRdAndNZ(pContext, &fields, result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (~Reg %d)", 
-	__func__, fields.d, result, fields.m);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (~Reg %d)", 
+  	__func__, fields.d, result, fields.m);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1467,7 +1154,7 @@ static int specialDataAndBranchExchange(PinkySimContext* pContext, uint16_t inst
         result = addRegisterT2(pContext, instr);
     else if ((instr & 0x03C0) == 0x0100)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException)
     }
     else if (((instr & 0x03C0) == 0x0140) || ((instr & 0x0380) == 0x0180))
@@ -1488,7 +1175,7 @@ static int addRegisterT2(PinkySimContext* pContext, uint16_t instr)
 
     if (fields.d == 15 && fields.m == 15)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -1497,12 +1184,12 @@ static int addRegisterT2(PinkySimContext* pContext, uint16_t instr)
         aluWritePC(pContext, addResults.result);
     else
         setReg(pContext, fields.d, addResults.result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeRdn7and2to0_Rm6to3(uint32_t instr)
@@ -1537,18 +1224,18 @@ static int cmpRegisterT2(PinkySimContext* pContext, uint16_t instr)
 
     if (fields.n == 15 || fields.m == 15)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
     addResults = addWithCarry(getReg(pContext, fields.n), ~getReg(pContext, fields.m), 1);
     updateNZCV(pContext, &fields, &addResults);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
-	__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
+  	__func__, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1562,12 +1249,12 @@ static int movRegister(PinkySimContext* pContext, uint16_t instr)
         aluWritePC(pContext, result);
     else
         setReg(pContext, fields.d, result);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value from Reg %d (0x%08x)", 
-	__func__, fields.d, fields.m, result);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value from Reg %d (0x%08x)", 
+  	__func__, fields.d, fields.m, result);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1578,23 +1265,23 @@ static int bx(PinkySimContext* pContext, uint16_t instr)
 
     if ((instr & 0x7) != 0x0)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if (fields.m == 15)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
     branchAddr = getReg(pContext, fields.m);
     bxWritePC(pContext, branchAddr);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x", __func__, branchAddr);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x", __func__, branchAddr);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static void bxWritePC(PinkySimContext* pContext, uint32_t address)
@@ -1617,12 +1304,12 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
 
     if ((instr & 0x7) != 0x0)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if (fields.m == 15)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -1630,12 +1317,12 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
     nextInstrAddr = getReg(pContext, PC) - 2;
     setReg(pContext, LR, nextInstrAddr | 1);
     blxWritePC(pContext, target);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set PC to 0x%08x. Set LR to 0x%08x", 
-	__func__, target, nextInstrAddr);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set PC to 0x%08x. Set LR to 0x%08x", 
+  	__func__, target, nextInstrAddr);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1658,12 +1345,12 @@ static int ldrLiteral(PinkySimContext* pContext, uint16_t instr)
     address = base + fields.imm;
     value = unalignedMemRead(pContext, address, 4);
     setReg(pContext, fields.t, value);
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
-	__func__, fields.t, value, address);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
+  	__func__, fields.t, value, address);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1696,7 +1383,8 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
 
     if (!isAligned(address, size))
     {
-        addLogEntry(pContext, address, result, size, "Exception: alignmentException");
+        addLogExeMemAccess(pContext, address, result, size, "%s: Exception: alignmentException",
+            __func__);
         __throw(alignmentException);
     }
 
@@ -1704,35 +1392,20 @@ static uint32_t alignedMemRead(PinkySimContext* pContext, uint32_t address, uint
     {
     case 1:
         result = IMemory_Read8(pContext->pMemory, address);
+//        updateLogDisassemble(address, DATA_16_BIT, "");
         break;
     case 2:
         result = IMemory_Read16(pContext->pMemory, address);
+//        updateLogDisassemble(address, DATA_16_BIT, "");
         break;
     case 4:
         result = IMemory_Read32(pContext->pMemory, address);
+//        updateLogDisassemble(address, DATA_32_BIT, "");
         break;
     }
 
-    if (classificationMap && address >= disassembleStartAddr && address < disassembleEndAddr)
-    {
-       classificationMap[address/2].rawVal = result;
-
-       switch (size)
-       {
-           case 1:
-           case 2:
-               classificationMap[address/2].type = DATA_16_BIT;
-               break;
-           case 4:
-               classificationMap[address/2].type = DATA_32_BIT_LO;
-               classificationMap[address/2+1].type = DATA_32_BIT_HI;
-               break;
-       } 
-    }
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (*0x%08x --> 0x%08x)", __func__, getMemInfo(address), address, result);
-    addLogEntry(pContext, address, result, size, desc);
+    addLogExeMemAccess(pContext, address, result, size, "%s: (*0x%08x --> 0x%08x)", 
+        __func__, address, result);
 
     return result;
 }
@@ -1790,12 +1463,12 @@ static int strRegister(PinkySimContext* pContext, uint16_t instr)
 
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to address 0x%08x (Reg %d (0x%08x) + Reg %d (0x%08x))",
-	 __func__, fields.t, getReg(pContext, fields.t), address, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to address 0x%08x (Reg %d (0x%08x) + Reg %d (0x%08x))",
+  	 __func__, fields.t, getReg(pContext, fields.t), address, fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -1821,7 +1494,7 @@ static void alignedMemWrite(PinkySimContext* pContext, uint32_t address, uint32_
 
     if (!isAligned(address, size))
     {
-        addLogEntry(pContext, address, value, size, "Exception: alignmentException");
+//        addLogEntry(pContext, address, value, size, "Exception: alignmentException");
         __throw(alignmentException);
     }
 
@@ -1837,11 +1510,11 @@ static void alignedMemWrite(PinkySimContext* pContext, uint32_t address, uint32_
         IMemory_Write8(pContext->pMemory, address, value);
         break;
     }
-
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: %s (*0x%08x = 0x%08x)", __func__, getMemInfo(address), address, value);
-    addLogEntry(pContext, address, value, size, desc);
-}
+/*
+      char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: %s (*0x%08x = 0x%08x)", __func__, getMemInfo(address), address, value);
+      addLogEntry(pContext, address, value, size, desc);
+*/  }
 
 static int strhRegister(PinkySimContext* pContext, uint16_t instr)
 {
@@ -1851,11 +1524,11 @@ static int strhRegister(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
     unalignedMemWrite(pContext, address, 2, getReg(pContext, fields.t));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int strbRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1866,11 +1539,11 @@ static int strbRegister(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
     unalignedMemWrite(pContext, address, 1, getReg(pContext, fields.t));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int ldrsbRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1881,11 +1554,11 @@ static int ldrsbRegister(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
     setReg(pContext, fields.t, signExtend8(unalignedMemRead(pContext, address, 1)));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static uint32_t signExtend8(uint32_t valueToExtend)
@@ -1901,11 +1574,11 @@ static int ldrRegister(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int ldrhRegister(PinkySimContext* pContext, uint16_t instr)
@@ -1918,11 +1591,11 @@ static int ldrhRegister(PinkySimContext* pContext, uint16_t instr)
     data = unalignedMemRead(pContext, address, 2);
     setReg(pContext, fields.t, zeroExtend16(data));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static uint32_t zeroExtend16(uint32_t value)
@@ -1938,11 +1611,11 @@ static int ldrbRegister(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
     setReg(pContext, fields.t, zeroExtend8(unalignedMemRead(pContext, address, 1)));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static uint32_t zeroExtend8(uint32_t value)
@@ -1960,11 +1633,11 @@ static int ldrshRegister(PinkySimContext* pContext, uint16_t instr)
     data = unalignedMemRead(pContext, address, 2);
     setReg(pContext, fields.t, signExtend16(data));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static uint32_t signExtend16(uint32_t valueToExtend)
@@ -1980,11 +1653,11 @@ static int strImmediateT1(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + (fields.imm << 2);
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to address 0x%08x (Reg %d (0x%08x) + 0x%08x)", 
-	__func__, fields.t, getReg(pContext, fields.t), address, fields.n, getReg(pContext, fields.n), (fields.imm << 2));
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to address 0x%08x (Reg %d (0x%08x) + 0x%08x)", 
+  	__func__, fields.t, getReg(pContext, fields.t), address, fields.n, getReg(pContext, fields.n), (fields.imm << 2));
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2008,11 +1681,11 @@ static int ldrImmediateT1(PinkySimContext* pContext, uint16_t instr)
     value = unalignedMemRead(pContext, address, 4);
     setReg(pContext, fields.t, value);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
-	__func__, fields.t, value, address);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
+  	__func__, fields.t, value, address);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2024,11 +1697,11 @@ static int strbImmediate(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + fields.imm;
     unalignedMemWrite(pContext, address, 1, getReg(pContext, fields.t));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int ldrbImmediate(PinkySimContext* pContext, uint16_t instr)
@@ -2039,11 +1712,11 @@ static int ldrbImmediate(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + fields.imm;
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 1));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int strhImmediate(PinkySimContext* pContext, uint16_t instr)
@@ -2054,11 +1727,11 @@ static int strhImmediate(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + (fields.imm << 1);
     unalignedMemWrite(pContext, address, 2, getReg(pContext, fields.t));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int ldrhImmediate(PinkySimContext* pContext, uint16_t instr)
@@ -2069,11 +1742,11 @@ static int ldrhImmediate(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, fields.n) + (fields.imm << 1);
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 2));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int strImmediateT2(PinkySimContext* pContext, uint16_t instr)
@@ -2085,11 +1758,11 @@ static int strImmediateT2(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, n) + fields.imm;
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to 0x%08x", 
-	__func__, fields.t, getReg(pContext, fields.t), address);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Write value of Reg %d (0x%08x) to 0x%08x", 
+  	__func__, fields.t, getReg(pContext, fields.t), address);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2104,11 +1777,11 @@ static int ldrImmediateT2(PinkySimContext* pContext, uint16_t instr)
     value = unalignedMemRead(pContext, address, 4);
     setReg(pContext, fields.t, value);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
-	__func__, fields.t, value, address);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Set Reg %d with value 0x%08x (from address 0x%08x)", 
+  	__func__, fields.t, value, address);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2120,11 +1793,11 @@ static int adr(PinkySimContext* pContext, uint16_t instr)
     result = align(getReg(pContext, PC), 4) + (fields.imm << 2);
     setReg(pContext, fields.d, result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int addSPT1(PinkySimContext* pContext, uint16_t instr)
@@ -2135,11 +1808,11 @@ static int addSPT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, SP), (fields.imm << 2), 0);
     setReg(pContext, fields.d, addResults.result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int misc16BitInstructions(PinkySimContext* pContext, uint16_t instr)
@@ -2172,7 +1845,7 @@ static int misc16BitInstructions(PinkySimContext* pContext, uint16_t instr)
         result = pop(pContext, instr);
     else if ((instr & 0x0F00) == 0x0E00)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: bkptException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: bkptException");
         __throw(bkptException)
     }
     else if ((instr & 0x0F00) == 0x0F00)
@@ -2188,11 +1861,11 @@ static int addSPT2(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, SP), fields.imm, 0);
     setReg(pContext, fields.d, addResults.result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static Fields decodeRdisSP_Imm6to0Shift2(uint32_t instr)
@@ -2212,11 +1885,11 @@ static int subSP(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, SP), ~fields.imm, 1);
     setReg(pContext, fields.d, addResults.result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int sxth(PinkySimContext* pContext, uint16_t instr)
@@ -2225,11 +1898,11 @@ static int sxth(PinkySimContext* pContext, uint16_t instr)
 
     setReg(pContext, fields.d, signExtend16(getReg(pContext, fields.m)));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int sxtb(PinkySimContext* pContext, uint16_t instr)
@@ -2238,11 +1911,11 @@ static int sxtb(PinkySimContext* pContext, uint16_t instr)
 
     setReg(pContext, fields.d, signExtend8(getReg(pContext, fields.m)));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int uxth(PinkySimContext* pContext, uint16_t instr)
@@ -2251,11 +1924,11 @@ static int uxth(PinkySimContext* pContext, uint16_t instr)
 
     setReg(pContext, fields.d, zeroExtend16(getReg(pContext, fields.m)));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int uxtb(PinkySimContext* pContext, uint16_t instr)
@@ -2264,11 +1937,11 @@ static int uxtb(PinkySimContext* pContext, uint16_t instr)
 
     setReg(pContext, fields.d, zeroExtend8(getReg(pContext, fields.m)));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int push(PinkySimContext* pContext, uint16_t instr)
@@ -2279,7 +1952,7 @@ static int push(PinkySimContext* pContext, uint16_t instr)
 
     if (bitCount(registers) < 1)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2294,11 +1967,11 @@ static int push(PinkySimContext* pContext, uint16_t instr)
     }
     setReg(pContext, SP, getReg(pContext, SP) - 4 * bitCount(registers));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static uint32_t bitCount(uint32_t value)
@@ -2319,7 +1992,7 @@ static int cps(PinkySimContext* pContext, uint16_t instr)
 
     if ((instr & 0xF) != 0x2)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2331,11 +2004,11 @@ static int cps(PinkySimContext* pContext, uint16_t instr)
             pContext->PRIMASK &= ~PRIMASK_PM;
     }
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int currentModeIsPrivileged(PinkySimContext* pContext)
@@ -2354,11 +2027,11 @@ static int rev(PinkySimContext* pContext, uint16_t instr)
     result = (value << 24) | (value >> 24) | ((value & 0xFF00) << 8) | ((value & 0xFF0000) >> 8);
     setReg(pContext, fields.d, result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int rev16(PinkySimContext* pContext, uint16_t instr)
@@ -2371,11 +2044,11 @@ static int rev16(PinkySimContext* pContext, uint16_t instr)
     result = ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8);
     setReg(pContext, fields.d, result);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int revsh(PinkySimContext* pContext, uint16_t instr)
@@ -2388,11 +2061,11 @@ static int revsh(PinkySimContext* pContext, uint16_t instr)
     result = ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8);
     setReg(pContext, fields.d, signExtend16(result));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int pop(PinkySimContext* pContext, uint16_t instr)
@@ -2403,7 +2076,7 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
 
     if (bitCount(registers) < 1)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2420,11 +2093,11 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
         loadWritePC(pContext, alignedMemRead(pContext, address, 4));
     setReg(pContext, SP, getReg(pContext, SP) + 4 * bitCount(registers));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static void loadWritePC(PinkySimContext* pContext, uint32_t address)
@@ -2440,7 +2113,7 @@ static int hints(PinkySimContext* pContext, uint16_t instr)
 
     if (opB != 0x0000)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: undefinedException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: undefinedException");
         __throw(undefinedException);
     }
     switch (opA)
@@ -2469,11 +2142,11 @@ static int hints(PinkySimContext* pContext, uint16_t instr)
 
 static int nop(PinkySimContext* pContext, uint16_t instr)
 {
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int yield(PinkySimContext* pContext, uint16_t instr)
@@ -2498,11 +2171,11 @@ static int sev(PinkySimContext* pContext, uint16_t instr)
 
 static int treatAsNop(PinkySimContext* pContext, uint16_t instr)
 {
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int stm(PinkySimContext* pContext, uint16_t instr)
@@ -2513,12 +2186,12 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
 
     if (bitCount(fields.registers) < 1)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if ((fields.registers & (1 << fields.n)) && isNotLowestBitSet(fields.registers, fields.n))
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2533,11 +2206,11 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
     }
     setReg(pContext, fields.n, getReg(pContext, fields.n) + 4 * bitCount(fields.registers));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Start address is Reg %d (0x%08x). fields.registers = 0x%02x (for values written into mem). Reg %d += %d", 
-	__func__, fields.n, address, fields.registers, fields.n, 4 * bitCount(fields.registers));
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Start address is Reg %d (0x%08x). fields.registers = 0x%02x (for values written into mem). Reg %d += %d", 
+  	__func__, fields.n, address, fields.registers, fields.n, 4 * bitCount(fields.registers));
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2564,7 +2237,7 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
 
     if (bitCount(fields.registers) < 1)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2580,11 +2253,11 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
     if (wback)
         setReg(pContext, fields.n, getReg(pContext, fields.n) + 4 * bitCount(fields.registers));
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Start address is Reg %d (0x%08x). fields.registers = 0x%02x (for loading with mem reads). Reg %d += %d if %d", 
-	__func__, fields.n, address, fields.registers, fields.n, 4 * bitCount(fields.registers), wback);
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Start address is Reg %d (0x%08x). fields.registers = 0x%02x (for loading with mem reads). Reg %d += %d if %d", 
+  	__func__, fields.n, address, fields.registers, fields.n, 4 * bitCount(fields.registers), wback);
+      addLogEntry(pContext, pContext->pc, instr, 2, desc);
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2592,7 +2265,7 @@ static int conditionalBranchAndSupervisor(PinkySimContext* pContext, uint16_t in
 {
     if ((instr & 0x0F00) == 0x0E00)
     {
-        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: undefinedException");
+//        addLogEntry(pContext, pContext->pc, instr, 2, "Exception: undefinedException");
         __throw(undefinedException)
     }
     else if ((instr & 0x0F00) == 0x0F00)
@@ -2610,19 +2283,19 @@ static int conditionalBranch(PinkySimContext* pContext, uint16_t instr)
 {
     int32_t imm32 = (((int32_t)(instr & 0xFF)) << 24) >> 23;
     uint32_t branchAddr = getReg(pContext, PC) + imm32;
-    char desc[MAX_DECODE_STR_LEN];
+//    char desc[MAX_DECODE_STR_LEN];
 
     if (conditionPassedForBranchInstr(pContext, instr))
     {
         branchWritePC(pContext, branchAddr);
-        snprintf(desc, ARRAY_SIZE(desc), "%s: Branching to 0x%08x", __func__, branchAddr);
+//        snprintf(desc, ARRAY_SIZE(desc), "%s: Branching to 0x%08x", __func__, branchAddr);
     }
     else
     {
-        snprintf(desc, ARRAY_SIZE(desc), "%s: Not branching to 0x%08x", __func__, branchAddr);
+//        snprintf(desc, ARRAY_SIZE(desc), "%s: Not branching to 0x%08x", __func__, branchAddr);
     }
 
-    addLogEntry(pContext, pContext->pc, instr, 2, desc);
+//    addLogEntry(pContext, pContext->pc, instr, 2, desc);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2671,11 +2344,11 @@ static int unconditionalBranch(PinkySimContext* pContext, uint16_t instr)
 
     branchWritePC(pContext, getReg(pContext, PC) + imm32);
 
-    char desc[MAX_DECODE_STR_LEN];
+/*    char desc[MAX_DECODE_STR_LEN];
     snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x", 
 	__func__, pContext->newPC);
     addLogEntry(pContext, pContext->pc, instr, 2, desc);
-
+*/
     return PINKYSIM_STEP_OK;
 }
 
@@ -2703,7 +2376,7 @@ static int branchAndMiscellaneousControl(PinkySimContext* pContext, uint16_t ins
     else if ((instr2 & 0x5000) == 0x5000)
         return bl(pContext, instr1, instr2);
 
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: undefinedException");
+    addLogExeInstr32(pContext, instr1, instr2, "%s: Exception: undefinedException", __func__);
     __throw(undefinedException);
 }
 
@@ -2715,17 +2388,17 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
     if (n == 13 || n == 15)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if (SYSm == 4 || (SYSm > 9 && SYSm < 16) || (SYSm > 16 && SYSm < 20) || (SYSm > 20))
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if ((instr1 & 0x0010) != 0x0000 || (instr2 & 0x3F00) != 0x0800)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2766,9 +2439,8 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
         break;
     }
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
+//TODO:
+    addLogExeInstr32(pContext, instr1, instr2, "%s", __func__);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2790,45 +2462,45 @@ static int dsb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 {
     if ((instr1 & 0x000F) != 0x000F || (instr2 & 0x2F00) != 0x0F00)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int dmb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 {
     if ((instr1 & 0x000F) != 0x000F || (instr2 & 0x2F00) != 0x0F00)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int isb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 {
     if ((instr1 & 0x000F) != 0x000F || (instr2 & 0x2F00) != 0x0F00)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
@@ -2839,17 +2511,17 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
     if (d == 13 || d == 15)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if (SYSm == 4 || (SYSm > 9 && SYSm < 16) || (SYSm > 16 && SYSm < 20) || (SYSm > 20))
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
     if ((instr1 & 0x001F) != 0x000F || (instr2 & 0x2000) != 0x0000)
     {
-        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
+//        addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, "Exception: unpredictableException");
         __throw(unpredictableException);
     }
 
@@ -2891,11 +2563,11 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     }
     setReg(pContext, d, value);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
-
-    return PINKYSIM_STEP_OK;
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s", __func__);
+      addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
+  
+*/    return PINKYSIM_STEP_OK;
 }
 
 static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
@@ -2916,10 +2588,10 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     branchAddr = getReg(pContext, PC) + imm32;
     branchWritePC(pContext, branchAddr);
 
-    char desc[MAX_DECODE_STR_LEN];
-    snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x (Link Reg is 0x%08x)", 
-	__func__, nextInstrAddr | 1, branchAddr);
-    addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
-
+/*    char desc[MAX_DECODE_STR_LEN];
+      snprintf(desc, ARRAY_SIZE(desc), "%s: Branch to 0x%08x (Link Reg is 0x%08x)", 
+  	__func__, nextInstrAddr | 1, branchAddr);
+      addLogEntry(pContext, pContext->pc, to32BitInst(instr1, instr2), 4, desc);
+*/
     return PINKYSIM_STEP_OK;
 }

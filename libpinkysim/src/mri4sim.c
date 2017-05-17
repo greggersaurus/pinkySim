@@ -123,7 +123,7 @@ __throws void mri4simInit(IMemory* pMem)
 
 void mri4simRun(IComm* pComm, int breakOnStart)
 {
-    enableLogDisassemble(0, 128 * 1024);
+//    enableLogDisassemble(0, 128 * 1024);
 
     g_pComm = pComm;
     do
@@ -142,7 +142,7 @@ void mri4simRun(IComm* pComm, int breakOnStart)
 
         if (PINKYSIM_STEP_OK != g_runResult)
         {
-            printLogDisassemble();
+//            printLogDisassemble();
         }
 
         __mriDebugException();

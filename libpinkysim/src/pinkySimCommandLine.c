@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <version.h>
 #include <pinkySim.h>
+#include <pinkySimLogExe.h>
 
 
 #define READ_ONLY  1

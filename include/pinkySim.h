@@ -92,6 +92,7 @@ typedef struct PinkySimContext
     uint32_t newPC;
     uint32_t PRIMASK;
     uint32_t CONTROL;
+    uint32_t stepNum; //!< Tracks how many instructions have execued since simulation start.
 } PinkySimContext;
 
 
@@ -108,9 +109,6 @@ typedef struct PinkySimContext
 #define PINKYSIM_RUN_SINGLESTEP     9   /* pinkySimRun() callback signalled single step. */
 
 
-void enableLogExe(const char* chipType);
-void enableLogDisassemble(uint32_t baseAddress, uint32_t size);
-void printLogDisassemble();
 int pinkySimStep(PinkySimContext* pContext);
 int pinkySimRun(PinkySimContext* pContext, int (*callback)(PinkySimContext*));
 
