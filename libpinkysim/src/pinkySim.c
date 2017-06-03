@@ -2228,17 +2228,37 @@ static int conditionalBranch(PinkySimContext* pContext, uint16_t instr)
 {
     int32_t imm32 = (((int32_t)(instr & 0xFF)) << 24) >> 23;
     uint32_t branchAddr = getReg(pContext, PC) + imm32;
+    uint32_t cond = (instr & 0x0F00) >> 8;
+    char* cond_strs[16] = 
+        {
+            "Equal, Z == 1",
+            "Not equal, Z == 0",
+            "Carry set, C == 1",
+            "Carry clear, C == 0",
+            "Minus, negative, N == 1",
+            "Plus, positive or zero, N == 0",
+            "Overflow, V == 1",
+            "No overflow, V == 0",
+            "Unsigned higher, C == 1 && Z == 0",
+            "Unsigned lower or same, C == 0 && Z == 1",
+            "Signed greater than or equal, N == V",
+            "Signed less than, N != V",
+            "Signed greater than, Z == 0 && N == V",
+            "Signed less than or equal, Z == 1 && N != V",
+            "None",
+            "None",
+        }; 
 
     if (conditionPassedForBranchInstr(pContext, instr))
     {
         branchWritePC(pContext, branchAddr);
-        addLogExeInstr16(pContext, instr, "%s: Branching to 0x%08x", 
-            __func__, branchAddr);
+        addLogExeInstr16(pContext, instr, "%s: Branching to 0x%08x (Condition check %s)", 
+            __func__, branchAddr, cond_strs[cond]);
     }
     else
     {
-        addLogExeInstr16(pContext, instr, "%s: Not branching to 0x%08x", 
-            __func__, branchAddr);
+        addLogExeInstr16(pContext, instr, "%s: Not branching to 0x%08x (Condition check %s)", 
+            __func__, branchAddr, cond_strs[cond]);
     }
 
     return PINKYSIM_STEP_OK;
@@ -2525,8 +2545,8 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     branchAddr = getReg(pContext, PC) + imm32;
     branchWritePC(pContext, branchAddr);
 
-    addLogExeInstr32(pContext, instr1, instr2, "%s: Branch to 0x%08x (Link Reg is 0x%08x)", 
-        __func__, nextInstrAddr | 1, branchAddr);
+    addLogExeInstr32(pContext, instr1, instr2, "%s: Branch to 0x%08x (Link Reg set to 0x%08x)", 
+        __func__, branchAddr, nextInstrAddr | 1);
 
     return PINKYSIM_STEP_OK;
 }
