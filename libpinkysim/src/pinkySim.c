@@ -566,8 +566,8 @@ static int addRegisterT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(add_op1, add_op2, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Add Reg %d (0x%08x) and Reg %d (0x%08x)", 
-        __func__, fields.n, add_op1, fields.m, add_op2);
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) + Reg %d (0x%08x)", 
+        __func__, fields.d, addResults.result, fields.n, add_op1, fields.m, add_op2);
 
     return PINKYSIM_STEP_OK;
 }
@@ -625,8 +625,8 @@ static int subRegister(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(sub_op1, ~sub_op2, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
-        __func__, fields.n, sub_op1, fields.m, sub_op2);
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) - Reg %d (0x%08x)", 
+        __func__, fields.d, addResults.result, fields.n, sub_op1, fields.m, sub_op2);
   
     return PINKYSIM_STEP_OK;
 }
@@ -640,8 +640,8 @@ static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(add_op1, fields.imm, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Adding Reg %d (0x%08x) with value 0x%08x", 
-        __func__, fields.n, add_op1, fields.imm);
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) + value 0x%08x", 
+        __func__, fields.d, addResults.result, fields.n, add_op1, fields.imm);
   
     return PINKYSIM_STEP_OK;
 }
@@ -665,8 +665,8 @@ static int subImmediateT1(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(sub_op1, ~fields.imm, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Subtract Reg %d (0x%08x) minus valid 0x%08x",
-         __func__, fields.n, sub_op1, fields.imm);
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) - value 0x%08x",
+         __func__, fields.d, addResults.result, fields.n, sub_op1, fields.imm);
 
     return PINKYSIM_STEP_OK;
 }
@@ -739,8 +739,8 @@ static int addImmediateT2(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, fields.n), fields.imm, 0);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Add Reg %d (0x%08x) with 0x%08x", 
-        __func__, fields.n, getReg(pContext, fields.n), fields.imm);
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) + 0x%08x", 
+        __func__, fields.d, addResults.result, fields.n, getReg(pContext, fields.n), fields.imm);
 
     return PINKYSIM_STEP_OK;
 }
@@ -763,8 +763,8 @@ static int subImmediateT2(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(getReg(pContext, fields.n), ~fields.imm, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Subtract Reg %d (0x%08x) minus 0x%08x",
-         __func__, fields.n, getReg(pContext, fields.n), fields.imm);
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) - 0x%08x",
+         __func__, fields.d, addResults.result, fields.n, getReg(pContext, fields.n), fields.imm);
 
     return PINKYSIM_STEP_OK;
 }
@@ -930,7 +930,7 @@ static int adcRegister(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(add1, add2, pContext->xPSR & APSR_C);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Set Reg %d to %d (Reg %d (0x%08x) + Reg %d (0x%08x) + carry of %d)", 
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = (Reg %d (0x%08x) + Reg %d (0x%08x) + carry of %d)", 
         __func__, fields.d, addResults.result, fields.n, add1, fields.m, add2, carry);
 
     return PINKYSIM_STEP_OK;
@@ -951,7 +951,7 @@ static int sbcRegister(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(add1, ~add2, pContext->xPSR & APSR_C);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Set Reg %d to %d (Reg %d (0x%08x) + ~Reg %d (~0x%08x) + carry of %d)", 
+    addLogExeInstr16(pContext, instr, "%s: Set Reg %d (0x%08x) = (Reg %d (0x%08x) + ~Reg %d (~0x%08x) + carry of %d)", 
         __func__, fields.d, addResults.result, fields.n, add1, fields.m, add2, carry);
 
     return PINKYSIM_STEP_OK;
@@ -1003,7 +1003,7 @@ static int rsbRegister(PinkySimContext* pContext, uint16_t instr)
     addResults = addWithCarry(~data, imm32, 1);
     updateRdAndNZCV(pContext, &fields, &addResults);
 
-    addLogExeInstr16(pContext, instr, "%s: Set Reg %d to 0x%08x (0x%08x + ~Reg %d (~0x%08x) with carry of 1)", 
+    addLogExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = (0x%08x + ~Reg %d (~0x%08x) with carry of 1)", 
         __func__, fields.d, addResults.result, imm32, fields.n, data);
 
     return PINKYSIM_STEP_OK;
