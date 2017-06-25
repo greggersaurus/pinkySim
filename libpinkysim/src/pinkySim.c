@@ -2108,6 +2108,9 @@ static int wfe(PinkySimContext* pContext, uint16_t instr)
 
 static int wfi(PinkySimContext* pContext, uint16_t instr)
 {
+    addLogExeInstr16(pContext, instr, "%s", 
+        __func__);
+
     return PINKYSIM_STEP_UNSUPPORTED;
 }
 
