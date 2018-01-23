@@ -46,6 +46,15 @@ git submodule init
 git submodule update
 }}}
 
+**- but, actually on OSX you may need to... (TODO: This is hackish and wrong, but maybe unique to my system...) -**
+
+{{{
+git clone https://github.com/greggersaurus/pinkySim.git
+cd pinkySim
+git clone https://github.com/adamgreen/mri.git
+cd mri
+git clone https://github.com/adamgreen/CppUTest.git
+}}}
 
 == How to Build
 pinkySim uses a single non-recursive makefile at the root of the project to build everything.  It supports these top
@@ -75,6 +84,12 @@ Examples:\\
 {{{make GCOV_LIBPINKYSIM}}} - This is similar to the previous example except that it builds binaries which
 include code coverage instrumentation and then reports the resulting code coverage results after running the unit
 tests.\\
+
+Example:\\
+{{{make pinkySim}}} - Build only pinkySim (i.e. no tests).
+
+TODO: Another instance of a possible issue on my build system. Tests fail to
+build, but this makes sure that at least we can an executable we can use.
 
 === Parallel Build Notes
 The user should feel free to use the {{{-j}}} or {{{--jobs}}} command line flag with GNU Make to let it perform the
