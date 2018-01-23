@@ -231,7 +231,7 @@ static int parseLogExeOption(pinkySimCommandLine* pThis, int argc, const char** 
 
     pThis->logExeChipType = ppArgs[0];
 
-    enableLogExe(pThis->logExeChipType);
+    logExeEnable(pThis->logExeChipType);
 
     return 2;
 }

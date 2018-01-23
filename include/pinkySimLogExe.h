@@ -16,13 +16,16 @@
 // Forwar declaration
 struct PinkySimContext;
 
-void enableLogExe(const char* chipType);
-void addLogExeInstr16(const struct PinkySimContext* context, uint16_t instr, 
+void logExeEnable(const char* chipType);
+const char* getMemInfo(uint32_t addr);
+void logExeInstr16(const struct PinkySimContext* context, uint16_t instr, 
 	const char* format, ...);
-void addLogExeInstr32(const struct PinkySimContext* context, 
+void logExeInstr32(const struct PinkySimContext* context, 
 	uint16_t instr1, uint16_t instr2, const char* format, ...);
-void addLogExeMemAccess(const struct PinkySimContext* context, uint32_t address,
-	uint32_t result, uint32_t size, const char* format, ...);
-//TODO: void cleanup();
+void logExeCCode(const char* format, ...);
+void logExeIncIndentCCode();
+void logExeDecIndentCCode();
+//TODO: to close down file and deallocate, etc.
+//void cleanup();
 
 #endif /* _PINKY_SIM_LOGEXE_H_ */
