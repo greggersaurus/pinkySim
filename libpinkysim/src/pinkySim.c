@@ -334,7 +334,8 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x << %d (Carry Out = 0x%08x)\n",
         shiftResults.result, value_to_shift, decodedShift.n, shiftResults.carryOut);
-    logExeCCode("reg%d = (uint32_t)reg%d << %d;\n\n", fields.d, fields.m, decodedShift.n);
+    logExeCCode("reg%d = (uint32_t)reg%d << %d;\n\n", 
+        fields.d, fields.m, decodedShift.n);
 
     return PINKYSIM_STEP_OK;
 }
@@ -543,7 +544,8 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x >> %d (Carry Out = 0x%08x)\n",
         shiftResults.result, value_to_shift, decodedShift.n, shiftResults.carryOut);
-    logExeCCode("reg%d = (uint32_t)reg%d >> %d;\n\n", fields.d, fields.m, decodedShift.n);
+    logExeCCode("reg%d = (uint32_t)reg%d >> %d;\n\n", 
+        fields.d, fields.m, decodedShift.n);
 
     return PINKYSIM_STEP_OK;
 }
@@ -563,7 +565,8 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x >> %d (Carry Out = 0x%08x)\n",
         shiftResults.result, value_to_shift, decodedShift.n, shiftResults.carryOut);
-    logExeCCode("reg%d = (uint32_t)reg%d >> %d;\n\n", fields.d, fields.m, decodedShift.n);
+    logExeCCode("reg%d = (uint32_t)reg%d >> %d;\n\n", 
+        fields.d, fields.m, decodedShift.n);
 
     return PINKYSIM_STEP_OK;
 }
@@ -581,7 +584,8 @@ static int addRegisterT1(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) + Reg %d (0x%08x)", 
         __func__, fields.d, addResults.result, fields.n, add_op1, fields.m, add_op2);
 
-    logExeCCode("// 0x%08x = 0x%08x + 0x%08x\n", addResults.result, add_op1, add_op2);
+    logExeCCode("// 0x%08x = 0x%08x + 0x%08x\n", 
+        addResults.result, add_op1, add_op2);
     logExeCCode("reg%d = reg%d + reg%d;\n\n", fields.d, fields.n, fields.m);
 
     return PINKYSIM_STEP_OK;
@@ -643,7 +647,8 @@ static int subRegister(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) - Reg %d (0x%08x)", 
         __func__, fields.d, addResults.result, fields.n, sub_op1, fields.m, sub_op2);
 
-    logExeCCode("// 0x%08x = 0x%08x - 0x%08x\n", addResults.result, sub_op1, sub_op2);
+    logExeCCode("// 0x%08x = 0x%08x - 0x%08x\n", 
+        addResults.result, sub_op1, sub_op2);
     logExeCCode("reg%d = reg%d - reg%d;\n\n", fields.d, fields.n, fields.m);
   
     return PINKYSIM_STEP_OK;
@@ -661,7 +666,8 @@ static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) + value 0x%08x", 
         __func__, fields.d, addResults.result, fields.n, add_op1, fields.imm);
 
-    logExeCCode("// 0x%08x = 0x%08x + 0x%08x\n", addResults.result, add_op1, fields.imm);
+    logExeCCode("// 0x%08x = 0x%08x + 0x%08x\n", 
+        addResults.result, add_op1, fields.imm);
     logExeCCode("reg%d = reg%d + 0x%08x;\n\n", fields.d, fields.n, fields.imm);
   
     return PINKYSIM_STEP_OK;
@@ -689,7 +695,8 @@ static int subImmediateT1(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = Reg %d (0x%08x) - value 0x%08x",
          __func__, fields.d, addResults.result, fields.n, sub_op1, fields.imm);
 
-    logExeCCode("// 0x%08x = 0x%08x - 0x%08x\n", addResults.result, sub_op1, fields.imm);
+    logExeCCode("// 0x%08x = 0x%08x - 0x%08x\n", 
+        addResults.result, sub_op1, fields.imm);
     logExeCCode("reg%d = reg%d - 0x%08x;\n\n", fields.d, fields.n, fields.imm);
 
     return PINKYSIM_STEP_OK;
@@ -705,7 +712,7 @@ static int movImmediate(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Set Reg %d with value 0x%08x", 
         __func__, fields.d, result);
 
-    logExeCCode("reg%d = 0x%08x;\n\n", fields.d, result);
+    logExeCCode("reg%d = 0x%08x; // (fields.imm)\n\n", fields.d, result);
 
     return PINKYSIM_STEP_OK;
 }
@@ -879,7 +886,7 @@ static int andRegister(PinkySimContext* pContext, uint16_t instr)
         __func__, fields.d, result, fields.n, fields.m);
 
     logExeCCode("// 0x%08x = 0x%08x & 0x%08x\n", result, 
-	getReg(pContext, fields.n), getReg(pContext, fields.m));
+        getReg(pContext, fields.n), getReg(pContext, fields.m));
     logExeCCode("reg%d = reg%d & reg%d;\n\n", fields.d, fields.n, fields.m);
 
     updateRdAndNZ(pContext, &fields, result);
@@ -908,7 +915,7 @@ static int eorRegister(PinkySimContext* pContext, uint16_t instr)
         __func__, fields.d, result, fields.n, fields.m);
 
     logExeCCode("// 0x%08x = 0x%08x ^ 0x%08x\n", result, 
-	getReg(pContext, fields.n), getReg(pContext, fields.m));
+        getReg(pContext, fields.n), getReg(pContext, fields.m));
     logExeCCode("reg%d = reg%d ^ reg%d;\n\n", fields.d, fields.n, fields.m);
 
     updateRdAndNZ(pContext, &fields, result);
@@ -932,7 +939,8 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x << 0x%08x (Carry Out = 0x%08x)\n", 
         shiftResults.result, value_to_shift, shiftN, shiftResults.carryOut);
-    logExeCCode("reg%d = (uint32_t)reg%d << reg%d;\n\n", fields.d, fields.n, fields.m);
+    logExeCCode("reg%d = (uint32_t)reg%d << reg%d;\n\n", 
+        fields.d, fields.n, fields.m);
 
     return PINKYSIM_STEP_OK;
 }
@@ -953,7 +961,8 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x >> 0x%08x (Carry Out = 0x%08x)\n", 
         shiftResults.result, value_to_shift, shiftN, shiftResults.carryOut);
-    logExeCCode("reg%d = (uint32_t)reg%d >> reg%d;\n\n", fields.d, fields.n, fields.m);
+    logExeCCode("reg%d = (uint32_t)reg%d >> reg%d;\n\n", 
+        fields.d, fields.n, fields.m);
 
     return PINKYSIM_STEP_OK;
 }
@@ -974,7 +983,8 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x >> 0x%08x (Carry Out = 0x%08x)\n", 
         shiftResults.result, value_to_shift, shiftN, shiftResults.carryOut);
-    logExeCCode("reg%d = (int32_t)reg%d >> reg%d;\n\n", fields.d, fields.n, fields.m);
+    logExeCCode("reg%d = (int32_t)reg%d >> reg%d;\n\n", 
+        fields.d, fields.n, fields.m);
 
     return PINKYSIM_STEP_OK;
 }
@@ -996,8 +1006,10 @@ static int adcRegister(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Reg %d (0x%08x) = (Reg %d (0x%08x) + Reg %d (0x%08x) + carry of %d)", 
         __func__, fields.d, addResults.result, fields.n, add1, fields.m, add2, carry);
 
-    logExeCCode("// 0x%08x = 0x%08x + 0x%08x + 0x%08x\n", addResults.result, add1, add2, carry);
-    logExeCCode("reg%d = reg%d + reg%d + carry;\n\n", fields.d, fields.n, fields.m);
+    logExeCCode("// 0x%08x = 0x%08x + 0x%08x + 0x%08x\n", 
+        addResults.result, add1, add2, carry);
+    logExeCCode("reg%d = reg%d + reg%d + carry;\n\n", 
+        fields.d, fields.n, fields.m);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1020,8 +1032,10 @@ static int sbcRegister(PinkySimContext* pContext, uint16_t instr)
     logExeInstr16(pContext, instr, "%s: Set Reg %d (0x%08x) = (Reg %d (0x%08x) + ~Reg %d (~0x%08x) + carry of %d)", 
         __func__, fields.d, addResults.result, fields.n, add1, fields.m, add2, carry);
 
-    logExeCCode("// 0x%08x = 0x%08x + ~0x%08x + 0x%08x\n", addResults.result, add1, add2, carry);
-    logExeCCode("reg%d = reg%d + ~reg%d + carry;\n\n", fields.d, fields.n, fields.m);
+    logExeCCode("// 0x%08x = 0x%08x + ~0x%08x + 0x%08x\n", 
+        addResults.result, add1, add2, carry);
+    logExeCCode("reg%d = reg%d + ~reg%d + carry;\n\n", 
+        fields.d, fields.n, fields.m);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1362,7 +1376,7 @@ static int bx(PinkySimContext* pContext, uint16_t instr)
         __func__, fields.m, branchAddr);
 
     logExeCCode("// At 0x%08x branching to 0x%08x (reg%d)\n\n", 
-        getReg(pContext, PC), branchAddr, fields.m);
+        pContext->pc, branchAddr, fields.m);
 
     bxWritePC(pContext, branchAddr);
 
@@ -1405,7 +1419,7 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
         __func__, fields.m, target, nextInstrAddr);
 
     logExeCCode("// At 0x%08x branching to 0x%08x (reg%d). LR set to 0x%08x\n\n", 
-        getReg(pContext, PC), target, fields.m, nextInstrAddr);
+        pContext->pc, target, fields.m, nextInstrAddr);
 
     setReg(pContext, LR, nextInstrAddr | 1);
     blxWritePC(pContext, target);
@@ -1544,16 +1558,20 @@ static int strRegister(PinkySimContext* pContext, uint16_t instr)
     uint32_t address;
 
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
+    uint32_t orig_val = unalignedMemRead(pContext, address, 4);
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
-    logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%08x) to address 0x%08x - %s (Reg %d (0x%08x) + Reg %d (0x%08x))",
+    uint32_t modified_bits = orig_val ^ getReg(pContext, fields.t);
+
+    logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%08x) to address 0x%08x - %s (Reg %d (0x%08x) + Reg %d (0x%08x)). Modified Bits = 0x%08x",
         __func__, fields.t, getReg(pContext, fields.t), address, getMemInfo(address), 
-	fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m));
+        fields.n, getReg(pContext, fields.n), fields.m, getReg(pContext, fields.m),
+        modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + reg%d)\n", 
         getMemInfo(address), fields.n, fields.m);
-    logExeCCode("*(uint32_t*)0x%08x = reg%d; // = 0x%08x\n\n", address, 
-        fields.t, getReg(pContext, fields.t));
+    logExeCCode("*(uint32_t*)0x%08x = reg%d; // = 0x%08x (modified bits = 0x%08x)\n\n", 
+        address, fields.t, getReg(pContext, fields.t), modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1603,15 +1621,19 @@ static int strhRegister(PinkySimContext* pContext, uint16_t instr)
     uint32_t address;
 
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
+    uint32_t orig_val = unalignedMemRead(pContext, address, 2);
     unalignedMemWrite(pContext, address, 2, getReg(pContext, fields.t));
 
-    logExeInstr16(pContext, instr, "%s: MemWrite 0x%04x (Reg %d) to 0x%08x - %s (Reg %d + Reg %d)", 
-        __func__, 0xFFFF&getReg(pContext, fields.t), fields.t, address, getMemInfo(address), fields.n, fields.m);
+    uint32_t modified_bits = 0xFFFF&(orig_val ^ getReg(pContext, fields.t));
+
+    logExeInstr16(pContext, instr, "%s: MemWrite 0x%04x (Reg %d) to 0x%08x - %s (Reg %d + Reg %d). Modified Bits = 0x%04x", 
+        __func__, 0xFFFF&getReg(pContext, fields.t), fields.t, address, 
+        getMemInfo(address), fields.n, fields.m, modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + reg%d)\n", 
         getMemInfo(address), fields.n, fields.m);
-    logExeCCode("*(uint16_t*)0x%08x = reg%d; // = 0x%08x\n\n", address, 
-        fields.t, 0xFFFF&getReg(pContext, fields.t));
+    logExeCCode("*(uint16_t*)0x%08x = reg%d; // = 0x%04x (modified bits = 0x%04x)\n\n", 
+        address, fields.t, 0xFFFF&getReg(pContext, fields.t), modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1622,15 +1644,19 @@ static int strbRegister(PinkySimContext* pContext, uint16_t instr)
     uint32_t address;
 
     address = getReg(pContext, fields.n) + getReg(pContext, fields.m);
+    uint32_t orig_val = unalignedMemRead(pContext, address, 1);
     unalignedMemWrite(pContext, address, 1, getReg(pContext, fields.t));
 
-    logExeInstr16(pContext, instr, "%s: MemWrite 0x%02x (Reg %d) to 0x%08x - %s (Reg %d + Reg %d)", 
-        __func__, 0xFF&getReg(pContext, fields.t), fields.t, address, getMemInfo(address), fields.n, fields.m);
+    uint32_t modified_bits = 0xFF&(orig_val ^ getReg(pContext, fields.t));
+
+    logExeInstr16(pContext, instr, "%s: MemWrite 0x%02x (Reg %d) to 0x%08x - %s (Reg %d + Reg %d). Modified Bits = 0x%02x", 
+        __func__, 0xFF&getReg(pContext, fields.t), fields.t, address, 
+        getMemInfo(address), fields.n, fields.m, modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + reg%d)\n", 
         getMemInfo(address), fields.n, fields.m);
-    logExeCCode("*(uint8_t*)0x%08x = reg%d; // = 0x%08x\n\n", address, 
-        fields.t, 0xFF&getReg(pContext, fields.t));
+    logExeCCode("*(uint8_t*)0x%08x = reg%d; // = 0x%02x (modified bits = 0x%02x)\n\n", 
+        address, fields.t, 0xFF&getReg(pContext, fields.t), modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1766,16 +1792,19 @@ static int strImmediateT1(PinkySimContext* pContext, uint16_t instr)
     uint32_t address;
 
     address = getReg(pContext, fields.n) + (fields.imm << 2);
+    uint32_t orig_val = unalignedMemRead(pContext, address, 4);
     unalignedMemWrite(pContext, address, 4, getReg(pContext, fields.t));
 
-    logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%08x) to address 0x%08x - %s (Reg %d (0x%08x) + 0x%08x)", 
+    uint32_t modified_bits = orig_val ^ getReg(pContext, fields.t);
+
+    logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%08x) to address 0x%08x - %s (Reg %d (0x%08x) + 0x%08x). Modified Bits = 0x%08x", 
         __func__, fields.t, getReg(pContext, fields.t), address, getMemInfo(address), 
-	fields.n, getReg(pContext, fields.n), (fields.imm << 2));
+        fields.n, getReg(pContext, fields.n), (fields.imm << 2), modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + 0x%08x)\n", 
         getMemInfo(address), fields.n, fields.imm << 2);
-    logExeCCode("*(uint32_t*)0x%08x = reg%d; // = 0x%08x\n\n", address, 
-        fields.t, getReg(pContext, fields.t));
+    logExeCCode("*(uint32_t*)0x%08x = reg%d; // = 0x%08x (modified bits = 0x%08x)\n\n", address, 
+        fields.t, getReg(pContext, fields.t), modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1817,15 +1846,19 @@ static int strbImmediate(PinkySimContext* pContext, uint16_t instr)
     uint32_t address;
 
     address = getReg(pContext, fields.n) + fields.imm;
+    uint32_t orig_val = unalignedMemRead(pContext, address, 1);
     unalignedMemWrite(pContext, address, 1, getReg(pContext, fields.t));
 
-    logExeInstr16(pContext, instr, "%s: MemWrite Reg %d (0x%02x) to 0x%08x - %s",
-        __func__, fields.t, 0xFF&getReg(pContext, fields.t), address, getMemInfo(address));
+    uint32_t modified_bits = 0xFF&(orig_val ^ getReg(pContext, fields.t));
+
+    logExeInstr16(pContext, instr, "%s: MemWrite Reg %d (0x%02x) to 0x%08x - %s. Modified Bits = 0x%02x",
+        __func__, fields.t, 0xFF&getReg(pContext, fields.t), address, 
+        getMemInfo(address), modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + 0x%08x)\n", 
         getMemInfo(address), fields.n, fields.imm);
-    logExeCCode("*(uint8_t*)0x%08x = reg%d; // = 0x%02x\n\n", address, 
-        fields.t, 0xFF&getReg(pContext, fields.t));
+    logExeCCode("*(uint8_t*)0x%08x = reg%d; // = 0x%02x (modified bits = 0x%02x)\n\n", 
+        address, fields.t, 0xFF&getReg(pContext, fields.t), modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1859,15 +1892,18 @@ static int strhImmediate(PinkySimContext* pContext, uint16_t instr)
 
     address = getReg(pContext, fields.n) + (fields.imm << 1);
     data = getReg(pContext, fields.t);
+    uint32_t orig_val = unalignedMemRead(pContext, address, 2);
     unalignedMemWrite(pContext, address, 2, data);
 
-    logExeInstr16(pContext, instr, "%s: MemWrite Reg %d (0x%04x) to 0x%08x - %s", 
-        __func__, fields.t, 0xFFFF&data, address, getMemInfo(address));
+    uint32_t modified_bits = 0xFFFF&(orig_val ^ data);
+
+    logExeInstr16(pContext, instr, "%s: MemWrite Reg %d (0x%04x) to 0x%08x - %s. Modified Bits = 0x%04x", 
+        __func__, fields.t, 0xFFFF&data, address, getMemInfo(address), modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + 0x%08x)\n", 
         getMemInfo(address), fields.n, (fields.imm << 1));
-    logExeCCode("*(uint16_t*)0x%08x = reg%d; // = 0x%04x\n\n", address, 
-        fields.t, 0xFFFF&data);
+    logExeCCode("*(uint16_t*)0x%08x = reg%d; // = 0x%04x (modified bits = 0x%04x)\n\n", 
+        address, fields.t, 0xFFFF&data, modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -1902,15 +1938,18 @@ static int strImmediateT2(PinkySimContext* pContext, uint16_t instr)
 
     address = getReg(pContext, n) + fields.imm;
     data = getReg(pContext, fields.t);
+    uint32_t orig_val = unalignedMemRead(pContext, address, 4);
     unalignedMemWrite(pContext, address, 4, data);
 
-    logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%08x) to 0x%08x - %s", 
-        __func__, fields.t, data, address, getMemInfo(address));
+    uint32_t modified_bits = orig_val ^ data;
+
+    logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%08x) to 0x%08x - %s. Modified Bits = 0x%08x", 
+        __func__, fields.t, data, address, getMemInfo(address), modified_bits);
 
     logExeCCode("// MemWrite %s (address was computed as reg%d + 0x%08x)\n", 
         getMemInfo(address), fields.n, fields.imm);
-    logExeCCode("*(uint32_t*)0x%08x = reg%d; // = 0x%08x\n\n", address, 
-        fields.t, data);
+    logExeCCode("*(uint32_t*)0x%08x = reg%d; // = 0x%08x (modified bits = 0x%08x)\n\n", 
+        address, fields.t, data, modified_bits);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2140,7 +2179,8 @@ static int push(PinkySimContext* pContext, uint16_t instr)
     {
         if (registers & (1 << i))
         {
-            logExeCCode("// Save reg%d to Stack at 0x%08x (Value saved is 0x%08x)\n", i, address, getReg(pContext, i));
+            logExeCCode("// Save reg%d to Stack at 0x%08x (Value saved is 0x%08x)\n", 
+                i, address, getReg(pContext, i));
             alignedMemWrite(pContext, address, 4, getReg(pContext, i));
             address += 4;
         }
@@ -2272,14 +2312,16 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
         if (registers & (1 << i))
         {
             setReg(pContext, i, alignedMemRead(pContext, address, 4));
-            logExeCCode("// Restore reg%d from Stack at 0x%08x (Value saved was 0x%08x)\n", i, address, getReg(pContext, i));
+            logExeCCode("// Restore reg%d from Stack at 0x%08x (Value saved was 0x%08x)\n", 
+                i, address, getReg(pContext, i));
             address += 4;
         }
     }
     if (registers & (1 << 15))
     {
         loadWritePC(pContext, alignedMemRead(pContext, address, 4));
-        logExeCCode("// Restore PC from Stack at 0x%08x (Value saved was 0x%08x)\n", i, address, getReg(pContext, PC));
+        logExeCCode("// Restore PC from Stack at 0x%08x (Value saved was 0x%08x)\n", 
+            address, alignedMemRead(pContext, address, 4));
     }
     setReg(pContext, SP, getReg(pContext, SP) + 4 * bitCount(registers));
     logExeCCode("// Stack Pointer updated to 0x%08x\n\n", getReg(pContext, SP));
@@ -2411,10 +2453,13 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
     {
         if (fields.registers & (1 << i))
         {
+            uint32_t orig = alignedMemRead(pContext, address, 4);
             alignedMemWrite(pContext, address, 4, getReg(pContext, i));
 
-            logExeCCode("*(uint32_t*)0x%08x = reg%d; // 0x%08x\n", 
-                address, i, getReg(pContext, i));
+            uint32_t modified_bits = orig ^ getReg(pContext, i);
+
+            logExeCCode("*(uint32_t*)0x%08x = reg%d; // 0x%08x (modified bits = 0x%08x)\n", 
+                address, i, getReg(pContext, i), modified_bits);
 
             address += 4;
         }
@@ -2606,15 +2651,13 @@ static int unconditionalBranch(PinkySimContext* pContext, uint16_t instr)
 {
     int32_t imm32 = (((int32_t)(instr & 0x7FF)) << 21) >> 20;
 
-    uint32_t start_pc = getReg(pContext, PC);
-
     branchWritePC(pContext, getReg(pContext, PC) + imm32);
 
     logExeInstr16(pContext, instr, "%s: Branch to 0x%08x", 
         __func__, pContext->newPC);
 
-    logExeCCode("// Branching from PC = 0x%08x to PC = 0x%08x\n\n", start_pc, 
-        getReg(pContext, PC));
+    logExeCCode("// Branching from PC = 0x%08x to PC = 0x%08x\n\n", 
+        pContext->pc, pContext->newPC);
 
     return PINKYSIM_STEP_OK;
 }
@@ -2854,14 +2897,13 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
     nextInstrAddr = getReg(pContext, PC);
     setReg(pContext, LR, nextInstrAddr | 1);
     branchAddr = getReg(pContext, PC) + imm32;
+    branchWritePC(pContext, branchAddr);
 
     logExeInstr32(pContext, instr1, instr2, "%s: Branch to 0x%08x (Link Reg set to 0x%08x)", 
         __func__, branchAddr, nextInstrAddr | 1);
 
-    logExeCCode("// Branch from 0x%08x to 0x%08x (Set LR to 0x%08x\n\n",
-        getReg(pContext, PC), branchAddr, nextInstrAddr | 1);
-
-    branchWritePC(pContext, branchAddr);
+    logExeCCode("// Branch from 0x%08x to 0x%08x (Set LR to 0x%08x)\n\n",
+        pContext->pc, branchAddr, nextInstrAddr | 1);
 
     return PINKYSIM_STEP_OK;
 }
