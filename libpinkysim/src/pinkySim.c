@@ -1919,7 +1919,7 @@ static int ldrhImmediate(PinkySimContext* pContext, uint16_t instr)
     setReg(pContext, fields.t, data);
 
     logExeInstr16(pContext, instr, "%s: Set Reg %d to 0x%08x (MemRead from 0x%08x - %s)", 
-        __func__, fields.t, &data, address, getMemInfo(address));
+        __func__, fields.t, data, address, getMemInfo(address));
 
     logExeCCode("// MemRead %s (address was computed as reg%d + 0x%08x)\n", 
         getMemInfo(address), fields.n, (fields.imm << 1));
