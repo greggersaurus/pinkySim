@@ -1209,7 +1209,7 @@ static int bicRegister(PinkySimContext* pContext, uint16_t instr)
 
     logExeCCode("// 0x%08x = 0x%08x & ~0x%08x;\n", result, 
         getReg(pContext, fields.n), getReg(pContext, fields.m));
-    logExeCCode("reg%d = reg%d * ~reg%d;\n\n", fields.d, fields.n, fields.m);
+    logExeCCode("reg%d = reg%d & ~reg%d;\n\n", fields.d, fields.n, fields.m);
 
     updateRdAndNZ(pContext, &fields, result);
 
