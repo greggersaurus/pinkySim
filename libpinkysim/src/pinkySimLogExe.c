@@ -522,7 +522,7 @@ static const struct MemInfoEntry LPC11U37_MEM_INFO[] =
  *
  * \return Description of given memory that given address falls under.
  */
-const char* getMemInfo(uint32_t addr)
+const char* logExeGetMemInfo(uint32_t addr)
 {
 	const char* retval = "Unknown";
 	size_t cnt = 0;
@@ -544,11 +544,34 @@ static FILE* exeLogCsvFile = NULL;
 /* File storing an attempt to convert instructions executed during sim to 
     C-style code */
 static FILE* exeLogCFile = NULL;
+/* Like exeLogCFile, except intermediate read/write access to registers are 
+	combined to final memory access or conditional instructions */
+static FILE* exeLogCSimpliedFile = NULL;
 /* The number of tabs to insert before each line written to exeLogCsvFile */
 static int exeLogCNumTabs = 0;
 
 static const uint32_t MAX_DESC_STR_LEN = 128 + 32; //!< Maximum length of description
 	//!< field in exe log.
+
+static const uint32_t MAX_REG_STR_LEN = 1024;
+static const uint32_t MAX_REG_STR_STACK_SIZE = 8;
+static const uint32_t NUM_REGS = 16; //! We do not track how PC gets updated. SP = 13, LR = 14
+
+// Descriptive strings for various register and conditional settings
+typedef struct DescStrs {
+	char reg[NUM_REGS][MAX_REG_STR_STACK_SIZE][MAX_REG_STR_LEN]; //!< String representing what is stored in each Register.
+//int isConstant[NUM_REGS][MAX_REG_STR_STACK_SIZE]// TODO: use to mark when register has literal value that can be used in comutation, rather than exctending string... word better!
+        uint32_t reg_stack_depths[NUM_REGS]; //!< Keeps tracks of which string in reg[] stack is to be accessed for next read/write.
+	char apsr_n[MAX_REG_STR_LEN]; //!< Action that last updated Negative Flag in ASPR register
+        char apsr_z[MAX_REG_STR_LEN]; //!< Action that last updated Zero Flag in ASPR register
+        char apsr_c[MAX_REG_STR_LEN]; //!< Action that last updated Carry Flag in ASPR register
+        char apsr_v[MAX_REG_STR_LEN]; //!< Action that last updated Overflow Flag in ASPR register
+} DescStrs;
+
+static DescStrs valStrs; //!< Describes how each register or conditional got its 
+	//! value (i.e. starting from a memory read).
+static DescStrs cmtStrs; //!< Comments related to how each register or conditional 
+	//! got its value.
 
 /**
  * Enable execution logging for current simulation.
@@ -621,9 +644,72 @@ void logExeEnable(const char* chipType)
 	fprintf(exeLogCFile, " */\n");
 	fprintf(exeLogCFile, "void sim_run_%020llu()\n", (uint64_t)rawtime);
 	fprintf(exeLogCFile, "{\n");
-	logExeIncIndentCCode();
 
 	fflush(exeLogCFile);
+
+	// Open file for logging of C style decomposition of simulation
+	snprintf(tmp_str, ARRAY_SIZE(tmp_str), "exeLog_%020llu.simplified.c", 
+		(uint64_t)rawtime);
+	exeLogCSimpliedFile = fopen(tmp_str, "w");
+
+	fprintf(exeLogCSimpliedFile, "/**\n");
+	fprintf(exeLogCSimpliedFile, " * This is an automatically generated file that "
+		"attempts to take the data\n");
+	fprintf(exeLogCSimpliedFile, " *  obtained during a simulation run and "
+		"attempts to create a C code\n");
+	fprintf(exeLogCSimpliedFile, " *  representation of the executed code.\n");
+	fprintf(exeLogCSimpliedFile, " *  Intermediate register reads and writes\n");
+	fprintf(exeLogCSimpliedFile, " *  are combined to final memory reads and\n");
+	fprintf(exeLogCSimpliedFile, " *  writes, or conditional statements, making\n");
+	fprintf(exeLogCSimpliedFile, " *  this a simplified C conversion.\n");
+	fprintf(exeLogCSimpliedFile, " */\n");
+	fprintf(exeLogCSimpliedFile, "void sim_run_%020llu()\n", (uint64_t)rawtime);
+	fprintf(exeLogCSimpliedFile, "{\n");
+
+	fflush(exeLogCSimpliedFile);
+
+	// Initialize valStrs to default values
+	memset(&valStrs, 0, sizeof(valStrs));
+	memset(&cmtStrs, 0, sizeof(cmtStrs));
+
+	uint32_t stack_depth = 0;
+	for (uint32_t reg_num = 0; reg_num < 13; reg_num++) 
+	{
+		for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
+		{
+			logExeSetRegCmtStr(reg_num, 0, ""); 
+			logExeSetRegValStr(reg_num, 0, "Init"); 
+			logExePushRegStrs(reg_num);
+		}
+		logExeSetRegValStr(reg_num, 0, "Init"); 
+		for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
+		{
+			logExePopRegStrs(reg_num);
+		}
+	}
+
+	for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
+	{
+		logExeSetRegValStr(13, 0, "SP"); 
+		logExePushRegStrs(13);
+		logExeSetRegValStr(14, 0, "LR"); 
+		logExePushRegStrs(14);
+		logExeSetRegValStr(15, 0, "PC"); 
+		logExePushRegStrs(15);
+	}
+	logExeSetRegValStr(13, 0, "SP"); 
+	logExeSetRegValStr(14, 0, "LR"); 
+	logExeSetRegValStr(15, 0, "PC"); 
+	for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
+	{
+		logExePopRegStrs(13);
+		logExePopRegStrs(14);
+		logExePopRegStrs(15);
+	}
+
+	logExeSetCondValStr(APSR_NZCV, "Init");
+
+	logExeIncIndentCStyle();
 }
 
 /**
@@ -668,6 +754,7 @@ static void logExeCsvEntry(const struct PinkySimContext* context, uint32_t offse
 			break;
 	}
 	
+	//TODO: use vfprintf...
 	char desc[MAX_DESC_STR_LEN];
 	desc[MAX_DESC_STR_LEN-1] = 0;
 	vsnprintf(desc, MAX_DESC_STR_LEN, format, arg);
@@ -676,8 +763,6 @@ static void logExeCsvEntry(const struct PinkySimContext* context, uint32_t offse
 		fprintf(exeLogCsvFile, " ");
 	}
 	fprintf(exeLogCsvFile, "%s, ", desc);
-
-	fprintf(exeLogCsvFile, "  % 8d, ", context->stepNum);
 
 	fprintf(exeLogCsvFile, "0x%08x, ", context->pc);
 	fprintf(exeLogCsvFile, "0x%08x, ", context->newPC);
@@ -753,8 +838,12 @@ void logExeInstr32(const struct PinkySimContext* context,
  *
  * \return None.
  */
-void logExeCCode(const char* format, ...) {
+void logExeCStyleVerbose(const char* format, ...) {
 	static int needs_indent = 1;
+
+	// Check if logging was enabled
+	if (!exeLogCsvFile)
+		return;
 
 	if (needs_indent) {
 		for (int cnt = 0; cnt < exeLogCNumTabs; cnt++) {
@@ -768,6 +857,7 @@ void logExeCCode(const char* format, ...) {
 	char str[256];
 	va_start(args, format);
 
+	//TODO: use vfprintf...
 	str[sizeof(str)-1] = 0;
 	vsnprintf(str, sizeof(str), format, args);
 	fprintf(exeLogCFile, "%s", str);
@@ -782,11 +872,12 @@ void logExeCCode(const char* format, ...) {
 }
 
 /**
- * Increase exeLogCNumTabs.
+ * Increase depth at which next C style line starts (i.e. as if entering curly
+ *  brace section).
  *
  * \return None.
  */
-void logExeIncIndentCCode() {
+void logExeIncIndentCStyle() {
 	if (exeLogCNumTabs < 256) {
 		exeLogCNumTabs++;
 	} else {
@@ -797,11 +888,12 @@ void logExeIncIndentCCode() {
 }
 
 /**
- * Decrease exeLogCNumTabs.
+ * Decrease depth at which next C style line starts (i.e. as if leaving curly
+ *  brace section).
  *
  * \return None.
  */
-void logExeDecIndentCCode() {
+void logExeDecIndentCStyle() {
 	if (exeLogCNumTabs) {
 		exeLogCNumTabs--;
 	} else {
@@ -810,3 +902,366 @@ void logExeDecIndentCCode() {
 		fprintf(exeLogCFile, " *!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/\n");
 	}
 }
+
+/**
+ * Generic function for updating the conditional related descriptive strings 
+ *  in DescStrs.
+ *
+ * \param descStr[in] Pointer to DescStrs to be updated (i.e. may pertain to
+ *	value description strings or comment description strings).
+ * \param cond Defines which conditional bits are affected and which
+ *  conditional strings should be updated. Use APSR_* macros.
+ * \param str String describing action that updated condition.
+ *
+ * \return None.
+ */
+static void logExeSetCondDescStrOnly(const struct DescStrs* descStrs, 
+	uint32_t cond, const char* str)
+{
+	if (cond & APSR_N)
+	{
+		memcpy((void*)descStrs->apsr_n, str, MAX_REG_STR_LEN);
+	}
+	if (cond & APSR_Z)
+	{
+		memcpy((void*)descStrs->apsr_z, str, MAX_REG_STR_LEN);
+	}
+	if (cond & APSR_C)
+	{
+		memcpy((void*)descStrs->apsr_c, str, MAX_REG_STR_LEN);
+	}
+	if (cond & APSR_C)
+	{
+		memcpy((void*)descStrs->apsr_v, str, MAX_REG_STR_LEN);
+	}
+}
+
+/**
+ * Update the description string for the given register. Associated conditional strings
+ *  are also updated if need be.
+ *
+ * \param descStr[in] Pointer to DescStrs to be updated (i.e. may pertain to
+ *	value description strings or comment description strings).
+ * \param regNum 0 based register number that defines which string is to be
+ *  updated. 
+ * \param cond Defines which conditional bits are affected and which
+ *  conditional strings should be updated. Use APSR_* macros.
+ * \param[in] format Human readable description of entry.
+ * \param arg A value identifying a variable arguments list initialized with va_start.
+ * 
+ * \return None.
+ */
+static void logExeSetRegDescStr(const struct DescStrs* descStrs, 
+	uint32_t regNum, uint32_t cond, const char* format, va_list arg)
+{
+	char reg_str[MAX_REG_STR_LEN];	
+
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, 
+			regNum);
+		return;
+	}
+
+	vsnprintf(reg_str, MAX_REG_STR_LEN, format, arg);
+
+	uint32_t stack_depth = descStrs->reg_stack_depths[regNum];
+	memcpy((void*)descStrs->reg[regNum][stack_depth], reg_str, 
+		MAX_REG_STR_LEN);
+
+	logExeSetCondDescStrOnly(descStrs, cond, reg_str);
+}
+
+/**
+ * Return the string describing the specified register.
+ * 
+ * \param descStr[in] Pointer to DescStrs to be updated (i.e. may pertain to
+ *	value description strings or comment description strings).
+ * \param regNum Register number to return descriptive string for.
+ *
+ * \return Pointer to string descibed above.
+ */
+static const char* logExeGetRegDescStr(const struct DescStrs* descStrs, 
+	uint32_t regNum) 
+{
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, 
+			regNum);
+		return "invalid regNum";
+	}
+
+	uint32_t stack_depth = descStrs->reg_stack_depths[regNum];
+
+	return descStrs->reg[regNum][stack_depth];
+}
+
+/**
+ * Update the log string for the given register. Associated conditional strings
+ *  are also updated if need be.
+ *
+ * \param regNum 0 based register number that defines which string is to be
+ *  updated. 
+ * \param cond Defines which conditional bits are affected and which
+ *  conditional strings should be updated. Use APSR_* macros.
+ * \param[in] format Human readable description of entry.
+ * \param arg A value identifying a variable arguments list initialized with va_start.
+ * 
+ * \return None.
+ */
+void logExeSetRegValStr(uint32_t regNum, uint32_t cond, const char* format, ...) 
+{
+	va_list args;
+	va_start(args, format);
+	logExeSetRegDescStr(&valStrs, regNum, cond, format, args);
+	va_end(args);
+}
+
+/**
+ * Return the string describing how the specified register got its value (i.e.
+ *  from a memory read).
+ * 
+ * \param regNum Register number to return descriptive string for.
+ *
+ * \return Pointer to string descibed above.
+ */
+const char* logExeGetRegValStr(uint32_t regNum) 
+{
+	return logExeGetRegDescStr(&valStrs, regNum);
+}
+
+/**
+ * See logExeSetRegValStr(), except description string relates to comments.
+ */
+void logExeSetRegCmtStr(uint32_t regNum, uint32_t cond, const char* format, ...) 
+{
+	va_list args;
+	va_start(args, format);
+	logExeSetRegDescStr(&cmtStrs, regNum, cond, format, args);
+	va_end(args);
+}
+
+/**
+ * See logExeGetRegValStr(), except description string relates to comments.
+ */
+const char* logExeGetRegCmtStr(uint32_t regNum) 
+{
+	return logExeGetRegDescStr(&cmtStrs, regNum);
+}
+
+/**
+ * "Push" register description strings that are updated by logExeSetReg*Str() 
+ *  onto stack so that previous value can be recalled with call to 
+ *  logExePopRegStrs().
+ *
+ * \parma regNum The 0-based register number whose description string is to 
+ *  be push onto the stack.
+ *
+ * \return None.
+ */
+void logExePushRegStrs(uint32_t regNum) 
+{
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("logExePushRegStrs(): invalid regNum %d\n\n", regNum);
+		return;
+	}
+
+	uint32_t stack_depth = valStrs.reg_stack_depths[regNum];
+	if (stack_depth >= MAX_REG_STR_STACK_SIZE-1)
+	{
+		logExeCStyleSimplified("logExePushRegStrs(): Attempt to go above max stack depth for reg %d\n\n", regNum);
+		return;
+	}
+	valStrs.reg_stack_depths[regNum] = stack_depth+1;
+}
+
+/**
+ * Inverse of logExePushRegStrs(). This function recalls previously saved 
+ *  register description string.
+ *
+ * \parma regNum The 0-based register number whose description string is to 
+ *  be push onto the stack.
+ *
+ * \return None.
+ */
+void logExePopRegStrs(uint32_t regNum) 
+{
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("logExePopRegStrs(): invalid regNum %d\n\n", regNum);
+		return;
+	}
+
+	uint32_t stack_depth = valStrs.reg_stack_depths[regNum];
+	if (!stack_depth)
+	{
+		logExeCStyleSimplified("logExePopRegStrs(): Attempt to go below min stack depth for reg %d\n\n", regNum);
+		return;
+	}
+	valStrs.reg_stack_depths[regNum] = stack_depth-1;
+}
+
+/**
+ * Similar to logExeSetRegValStr, except only conditional strings are updated.
+ *
+ * \param cond Defines which conditional bits are affected and which
+ *  conditional strings should be updated. Use APSR_* macros.
+ * \param[in] format Human readable description of entry.
+ * \param arg A value identifying a variable arguments list initialized with va_start.
+ * 
+ * \return None.
+ */
+void logExeSetCondValStr(uint32_t cond, const char* format, ...) {
+	char cond_str[MAX_REG_STR_LEN];	
+	va_list args;
+
+	va_start(args, format);
+	vsnprintf(cond_str, MAX_REG_STR_LEN, format, args);
+	va_end(args);
+
+	logExeSetCondDescStrOnly(&valStrs, cond, cond_str);
+}
+
+/**
+ * Return the string relating to the actions that last caused the specified 
+ *  conditional bits to be set.
+ *
+ * \param descStr[in] Pointer to DescStrs to be updated (i.e. may pertain to
+ *	value description strings or comment description strings).
+ * \param cond Defines which conditional related string(s) to return.
+ *
+ * \return String as described above. 
+ */
+static const char* logExeGetCondDescStr(const struct DescStrs* descStrs, 
+	uint32_t cond) 
+{
+	switch (cond) 
+	{
+	case APSR_NZCV:
+		if (strncmp(descStrs->apsr_n, descStrs->apsr_z, MAX_REG_STR_LEN) ||
+			strncmp(descStrs->apsr_n, descStrs->apsr_c, MAX_REG_STR_LEN) ||
+			strncmp(descStrs->apsr_n, descStrs->apsr_v, MAX_REG_STR_LEN)) 
+		{
+			return "logExeGetCondDescStr(): APSR_NZCV string do not match";
+		}
+		return descStrs->apsr_n;
+
+	case APSR_NZC:
+		if (strncmp(descStrs->apsr_n, descStrs->apsr_z, MAX_REG_STR_LEN) ||
+			strncmp(descStrs->apsr_n, descStrs->apsr_c, MAX_REG_STR_LEN)) 
+		{
+			return "logExeGetCondDescStr(): APSR_NZC string do not match";
+		}
+		return descStrs->apsr_n;
+
+	case APSR_NZ:
+		if (strncmp(descStrs->apsr_n, descStrs->apsr_z, MAX_REG_STR_LEN)) 
+		{
+			return "logExeGetCondDescStr(): APSR_NZ string do not match";
+		}
+		return descStrs->apsr_n;
+
+	case APSR_NC:
+		if (strncmp(descStrs->apsr_n, descStrs->apsr_c, MAX_REG_STR_LEN)) 
+		{
+			return "logExeGetCondDescStr(): APSR_NC string do not match";
+		}
+		return descStrs->apsr_n;
+
+	case APSR_ZC:
+		if (strncmp(descStrs->apsr_z, descStrs->apsr_c, MAX_REG_STR_LEN)) 
+		{
+			return "logExeGetCondDescStr(): APSR_ZC string do not match";
+		}
+		return descStrs->apsr_z;
+
+	case APSR_N:
+		return descStrs->apsr_n;
+
+	case APSR_Z:
+		return descStrs->apsr_z;
+
+	case APSR_C:
+		return descStrs->apsr_c;
+
+	case APSR_V:
+		return descStrs->apsr_v;
+	}
+
+	return "logExeGetCondDescStr(): Invalid cond combo";
+}
+
+/**
+ * Return the string descrbing the actions that last caused the specified 
+ *  conditional bits to be set.
+ *
+ * \param cond Defines which conditional related string(s) to return.
+ *
+ * \return String as described above. 
+ */
+const char* logExeGetCondValStr(uint32_t cond) {
+	return logExeGetCondDescStr(&valStrs, cond);
+}
+
+/**
+ * See logExeSetCondValStr(), except description string relates to comments.
+ */
+void logExeSetCondCmtStr(uint32_t cond, const char* format, ...) {
+	char cond_str[MAX_REG_STR_LEN];	
+	va_list args;
+
+	va_start(args, format);
+	vsnprintf(cond_str, MAX_REG_STR_LEN, format, args);
+	va_end(args);
+
+	logExeSetCondDescStrOnly(&cmtStrs, cond, cond_str);
+}
+
+/**
+ * See logExeGetCondValStr(), exception description string relates to comments.
+ */
+const char* logExeGetCondCmtStr(uint32_t cond) {
+	return logExeGetCondDescStr(&cmtStrs, cond);
+}
+
+/**
+ * Add entry to simplified exeLogCFile. This is similar to logExeCStyleVerbose(), except
+ *  it is written to a different file where the goal is to reduce all register
+ *  read/writes to memory accesses or conditional checks.
+ *
+ * \param[in] format Human readable description of instruction.
+ * \param ... Additional argument like for printf().
+ *
+ * \return None.
+ */
+void logExeCStyleSimplified(const char* format, ...) {
+	static needs_indent = 1;
+	va_list args;
+
+	// Check if logging was enabled
+	if (!exeLogCsvFile)
+		return;
+
+	if (needs_indent) 
+	{
+		for (int cnt = 0; cnt < exeLogCNumTabs; cnt++) 
+		{
+			fprintf(exeLogCSimpliedFile, "\t");
+		}
+
+		needs_indent = 0;
+	}
+
+	va_start(args, format);
+	vfprintf(exeLogCSimpliedFile, format, args);
+	va_end(args);
+
+	if (format[strlen(format)-1] == '\n') 
+	{
+		needs_indent = 1;
+	}
+
+	fflush(exeLogCSimpliedFile);
+}
+

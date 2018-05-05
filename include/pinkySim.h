@@ -92,7 +92,6 @@ typedef struct PinkySimContext
     uint32_t newPC;
     uint32_t PRIMASK;
     uint32_t CONTROL;
-    uint32_t stepNum; //!< Tracks how many instructions have execued since simulation start.
 } PinkySimContext;
 
 

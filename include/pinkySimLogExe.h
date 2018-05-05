@@ -17,15 +17,43 @@
 struct PinkySimContext;
 
 void logExeEnable(const char* chipType);
-const char* getMemInfo(uint32_t addr);
+
+const char* logExeGetMemInfo(uint32_t addr);
+
 void logExeInstr16(const struct PinkySimContext* context, uint16_t instr, 
 	const char* format, ...);
 void logExeInstr32(const struct PinkySimContext* context, 
 	uint16_t instr1, uint16_t instr2, const char* format, ...);
-void logExeCCode(const char* format, ...);
-void logExeIncIndentCCode();
-void logExeDecIndentCCode();
+
+void logExeIncIndentCStyle();
+void logExeDecIndentCStyle();
+
+//TODO: to keep track of instructions that last affected conds, to be used by logExeCStyleVerbose();
+//void logExeSetCondInstr(uint32_t cond, const char* format, ...);
+//const char* logExeGetCondInstr();
+
+void logExeCStyleVerbose(const char* format, ...);
+
+//TODO: return true if value if register value was computed via constant(s) only. Can be used to keep register description strings reduced for further computations against other constants
+int logExeRegHasConstVal(uint32_t regNum);
+//TODO: return true if address falls into constant valued memory space (i.e. flash where compiled code is stored) and reading will return constant value
+int logExeIsConstMem(uint32_t addr);
+
+void logExeSetRegValStr(uint32_t regNum, uint32_t cond, const char* format, ...); 
+const char* logExeGetRegValStr(uint32_t regNum);
+void logExeSetRegCmtStr(uint32_t regNum, uint32_t cond, const char* format, ...); 
+const char* logExeGetRegCmtStr(uint32_t regNum); 
+void logExePushRegStrs(uint32_t regNum);
+void logExePopRegStrs(uint32_t regNum);
+
+void logExeSetCondValStr(uint32_t cond, const char* format, ...);
+const char* logExeGetCondValStr(uint32_t cond);
+void logExeSetCondCmtStr(uint32_t cond, const char* format, ...);
+const char* logExeGetCondCmtStr(uint32_t cond);
+
+void logExeCStyleSimplified(const char* format, ...);
+
 //TODO: to close down file and deallocate, etc.
-//void cleanup();
+//void logExeCleanup();
 
 #endif /* _PINKY_SIM_LOGEXE_H_ */
