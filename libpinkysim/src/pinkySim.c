@@ -344,8 +344,16 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(uint32_t)(%s) << %d carry(%s)", 
-            logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << %d carry(%s)", 
+                logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -568,8 +576,16 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(uint32_t)(%s) >> %d carry(%s)", 
-            logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) >> %d carry(%s)", 
+                logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -603,8 +619,16 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(int32_t)(%s) >> %d carry(%s)", 
-            logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s) >> %d carry(%s)", 
+                logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -636,8 +660,16 @@ static int addRegisterT1(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s%s)", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) + (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) + (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -712,8 +744,16 @@ static int subRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) - (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) - (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
   
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -744,8 +784,16 @@ static int addImmediateT1(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s", 
            logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) + 0x%08x", 
-            logExeGetRegValStr(op1_reg), op2_val);
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) + 0x%08x", 
+                logExeGetRegValStr(op1_reg), op2_val);
+        }
     }
  
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -786,8 +834,16 @@ static int subImmediateT1(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) - 0x%08x", 
-            logExeGetRegValStr(op1_reg), op2_val);
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) - 0x%08x", 
+                logExeGetRegValStr(op1_reg), op2_val);
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -810,7 +866,7 @@ static int movImmediate(PinkySimContext* pContext, uint16_t instr)
             result_reg, result_val);
 
         logExeSetRegCmtStr(result_reg, APSR_NZ, "");
-        logExeSetRegValStr(result_reg, APSR_NZ, "0x%08x", 
+        logExeSetRegValStr(result_reg, APSR_NZ, TRUE, "0x%08x", 
             result_val);
     }
 
@@ -853,19 +909,28 @@ static int cmpImmediate(PinkySimContext* pContext, uint16_t instr)
         uint32_t op1_reg = fields.n;
         uint32_t op1_val = getReg(pContext, op1_reg);
         uint32_t op2_val = fields.imm;
+        uint32_t result_val = addResults.result;
 
         logExeInstr16(pContext, instr, "%s: Subtract Reg %d (0x%08x) minus 0x%08x", 
             __func__, op1_reg, op1_val, op2_val);
 
-        logExeCStyleVerbose("// Compute 0x%08x - 0x%08x for compare\n", 
-            op1_val, op2_val);
+        logExeCStyleVerbose("// Compute 0x%08x - 0x%08x for compare (= 0x%08x)\n", 
+            op1_val, op2_val, result_val);
         logExeCStyleVerbose("if (reg%d - 0x%08x) is ", 
             op1_reg, op2_val);
 
         logExeSetCondCmtStr(APSR_NZCV, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetCondValStr(APSR_NZCV, "(%s) - 0x%08x", 
-            logExeGetRegValStr(op1_reg), op2_val);
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetCondValStr(APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetCondValStr(APSR_NZCV, FALSE, "(%s) - 0x%08x", 
+                logExeGetRegValStr(op1_reg), op2_val);
+        }
     }
 
     updateNZCV(pContext, &fields, &addResults);
@@ -905,8 +970,16 @@ static int addImmediateT2(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) + 0x%08x", 
-            logExeGetRegValStr(op1_reg), op2_val);
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) + 0x%08x", 
+                logExeGetRegValStr(op1_reg), op2_val);
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -947,8 +1020,16 @@ static int subImmediateT2(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s", 
            logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) - 0x%08x", 
-            logExeGetRegValStr(op1_reg), op2_val);
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) - 0x%08x",
+                logExeGetRegValStr(op1_reg), op2_val);
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -1038,8 +1119,16 @@ static int andRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZ, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, APSR_NZ, "(%s) & (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, FALSE, "(%s) & (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateRdAndNZ(pContext, &fields, result);
@@ -1081,8 +1170,16 @@ static int eorRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(fields.d, APSR_NZ, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(fields.d, APSR_NZ, "(%s) ^ (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(fields.d, APSR_NZ, FALSE, "(%s) ^ (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateRdAndNZ(pContext, &fields, result);
@@ -1118,8 +1215,16 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(uint32_t)(%s) << (%s) carry(%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << (%s) carry(%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -1155,8 +1260,16 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(uint32_t)(%s) >> (%s) carry(%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) >> (%s) carry(%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -1192,8 +1305,16 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(int32_t)(%s) >> (%s) carry(%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s) >> (%s) carry(%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -1226,8 +1347,16 @@ static int adcRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) + (%s) + carryOf(%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) + (%s) + carryOf(%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -1261,8 +1390,16 @@ static int sbcRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZCV, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZCV, "(%s) + ~(%s) + carryOf(%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZCV, FALSE, "(%s) + ~(%s) + carryOf(%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -1298,8 +1435,16 @@ static int rorRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr( result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        logExeSetRegValStr(result_reg, APSR_NZC, "(%s) ror (%s) carry(%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(%s) ror (%s) carry(%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
+        }
     }
 
     updateRdAndNZC(pContext, &fields, &shiftResults);
@@ -1318,6 +1463,7 @@ static int tstRegister(PinkySimContext* pContext, uint16_t instr)
         uint32_t op1_val = getReg(pContext, op1_reg);
         uint32_t op2_reg = fields.m;
         uint32_t op2_val = getReg(pContext, op2_reg);
+	uint32_t result_val = result;
 
         logExeInstr16(pContext, instr, "%s: Logical AND Reg %d (0x%08x) and %d (0x%08x) = 0x%08x", 
             __func__, op1_reg, op1_val, op2_reg, op2_val, result);
@@ -1329,8 +1475,16 @@ static int tstRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetCondCmtStr(APSR_NZ, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetCondValStr(APSR_NZ, "(%s) & (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetCondValStr(APSR_NZ, TRUE, "(%s) & (%s)", 
+                result_val);
+        }
+        else
+        {
+            logExeSetCondValStr(APSR_NZ, FALSE, "(%s) & (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateNZ(pContext, &fields, result);
@@ -1361,8 +1515,16 @@ static int rsbRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, APSR_NZC, "-(%s)",
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "-(%s)",
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     updateRdAndNZCV(pContext, &fields, &addResults);
@@ -1402,8 +1564,16 @@ static int cmpRegisterT1(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetCondCmtStr(APSR_NZCV, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetCondValStr(APSR_NZCV, "(%s) - (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetCondValStr(APSR_NZCV, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetCondValStr(APSR_NZCV, FALSE, "(%s) - (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateNZCV(pContext, &fields, &addResults);
@@ -1434,8 +1604,16 @@ static int cmnRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetCondCmtStr(APSR_NZCV, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetCondValStr(APSR_NZCV, "(%s) + (%s)", 
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetCondValStr(APSR_NZCV, TRUE, "(%s) & (%s)", 
+                result_val);
+        }
+        else
+        {
+            logExeSetCondValStr(APSR_NZCV, FALSE, "(%s) + (%s)", 
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateNZCV(pContext, &fields, &addResults);
@@ -1467,8 +1645,16 @@ static int orrRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZ, "%s%s",
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, APSR_NZ, "(%s) | (%s)",
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(%s) | (%s)",
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateRdAndNZ(pContext, &fields, result);
@@ -1500,8 +1686,16 @@ static int mulRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZ, "%s%s",
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, APSR_NZ, "(%s) * (%s)",
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, FALSE, "(%s) * (%s)",
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateRdAndNZ(pContext, &fields, result);
@@ -1543,8 +1737,16 @@ static int bicRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZ, "%s%s",
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, APSR_NZ, "(%s) & ~(%s)",
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, FALSE, "(%s) & ~(%s)",
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateRdAndNZ(pContext, &fields, result);
@@ -1574,8 +1776,16 @@ static int mvnRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZ, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, APSR_NZ, "~(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, APSR_NZ, FALSE, "~(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     updateRdAndNZ(pContext, &fields, result);
@@ -1629,8 +1839,16 @@ static int addRegisterT2(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s%s",
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetRegValStr(result_reg, 0, "(%s) + (%s)",
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "(%s) + (%s)",
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
 
         if (result_reg == 15)
         {
@@ -1690,19 +1908,28 @@ static int cmpRegisterT2(PinkySimContext* pContext, uint16_t instr)
         uint32_t op1_val = getReg(pContext, op1_reg);
         uint32_t op2_reg = fields.m;
         uint32_t op2_val = getReg(pContext, op2_reg);
+	uint32_t result_val = addResults.result;
 
         logExeInstr16(pContext, instr, "%s: Subtract Reg %d (0x%08x) minus Reg %d (0x%08x)", 
             __func__, op1_reg, op1_val, op2_reg, op2_val);
 
-        logExeCStyleVerbose("// Compute 0x%08x - 0x%08x for compare\n", 
-            op1_val, op2_val);
+        logExeCStyleVerbose("// Compute 0x%08x - 0x%08x for compare (= 0x%08x)\n", 
+            op1_val, op2_val, result_val);
         logExeCStyleVerbose("if (reg%d - reg%d) is ", 
             op1_reg, op2_reg);
 
         logExeSetCondCmtStr(APSR_NZCV, "%s%s",
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
-        logExeSetCondValStr(APSR_NZCV, "(%s) - (%s)",
-            logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
+        {
+            logExeSetCondValStr(APSR_NZCV, TRUE, "(%s) & (%s)", 
+                result_val);
+        }
+        else
+        {
+            logExeSetCondValStr(APSR_NZCV, FALSE, "(%s) - (%s)",
+                logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
+        }
     }
 
     updateNZCV(pContext, &fields, &addResults);
@@ -1729,8 +1956,16 @@ static int movRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "%s", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "%s", 
+                logExeGetRegValStr(op1_reg));
+        }
 
         if (result_reg == 15)
         {
@@ -1856,8 +2091,16 @@ static int ldrLiteral(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s)\t", 
             address, result_val, logExeGetMemInfo(address));
-        logExeSetRegValStr(result_reg, 0, "*(uint32_t*)0x%08x", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint32_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
@@ -2141,8 +2384,16 @@ static int ldrsbRegister(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegCmtStr(result_reg, 0, "%s%s// (int32_t)(*(int8_t*)0x%08x) -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\t", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
-        logExeSetRegValStr(result_reg, 0, "(int32_t)(*(int8_t*)0x%08x)", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "(int32_t)(*(int8_t*)0x%08x)", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, signExtend8(unalignedMemRead(pContext, address, 1)));
@@ -2180,7 +2431,16 @@ static int ldrRegister(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\t", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
-        logExeSetRegValStr(result_reg, 0, "*(uint32_t*)0x%08x", address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint32_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
@@ -2215,7 +2475,16 @@ static int ldrhRegister(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint16_t*)0x%08x -> 0x%04x (MemRead %s) (Addr = (%s) + (%s))\t", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
-        logExeSetRegValStr(result_reg, 0, "*(uint16_t*)0x%08x", address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint16_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, zeroExtend16(data));
@@ -2253,8 +2522,16 @@ static int ldrbRegister(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint8_t*)0x%08x -> 0x%02x (MemRead %s) (Addr = (%s) + (%s))\t", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
-        logExeSetRegValStr(result_reg, 0, "*(uint8_t*)0x%08x", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint8_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, zeroExtend8(unalignedMemRead(pContext, address, 1)));
@@ -2294,8 +2571,16 @@ static int ldrshRegister(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegCmtStr(result_reg, 0, "%s%s// (int32_t)(*(int16_t*)0x%08x) -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\t", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
-        logExeSetRegValStr(result_reg, 0, "(int32_t)(*(int16_t*)0x%08x)", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "(int32_t)(*(int16_t*)0x%08x)", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, signExtend16(data));
@@ -2379,8 +2664,16 @@ static int ldrImmediateT1(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
-        logExeSetRegValStr(result_reg, 0, "*(uint32_t*)0x%08x", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint32_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
@@ -2449,8 +2742,16 @@ static int ldrbImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s// *(uint8_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
-        logExeSetRegValStr(result_reg, 0, "*(uint8_t*)0x%08x", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint8_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 1));
@@ -2519,8 +2820,16 @@ static int ldrhImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s// *(uint16_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
-        logExeSetRegValStr(result_reg, 0, "*(uint16_t*)0x%08x", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint16_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 2));
@@ -2591,8 +2900,16 @@ static int ldrImmediateT2(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
-        logExeSetRegValStr(result_reg, 0, "*(uint32_t*)0x%08x", 
-            address);
+        if (logExeIsConstMem(address))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "*(uint32_t*)0x%08x", 
+                address);
+        }
     }
 
     setReg(pContext, fields.t, unalignedMemRead(pContext, address, 4));
@@ -2622,7 +2939,7 @@ static int adr(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (PC (0x%08x) + 0x%08x)\t",
             result_val, op1_val, op2_val);
-        logExeSetRegValStr(result_reg, 0, "0x%08x", 
+        logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
     }
 
@@ -2653,7 +2970,7 @@ static int addSPT1(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) + 0x%08x)\t",
             result_val, op1_val, op2_val);
-        logExeSetRegValStr(result_reg, 0, "0x%08x", 
+        logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
     }
 
@@ -2719,7 +3036,7 @@ static int addSPT2(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) + 0x%08x)\t",
             result_val, op1_val, op2_val);
-        logExeSetRegValStr(result_reg, 0, "0x%08x", 
+        logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
     }
 
@@ -2759,7 +3076,7 @@ static int subSP(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) - 0x%08x)\t",
             result_val, op1_val, op2_val);
-        logExeSetRegValStr(result_reg, 0, "0x%08x", 
+        logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
     }
 
@@ -2787,8 +3104,16 @@ static int sxth(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s",
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "signExtend16(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "signExtend16(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, signExtend16(getReg(pContext, fields.m)));
@@ -2815,8 +3140,16 @@ static int sxtb(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s",
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "signExtend8(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "signExtend8(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, signExtend8(getReg(pContext, fields.m)));
@@ -2843,8 +3176,16 @@ static int uxth(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s",
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "zeroExtend16(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "zeroExtend16(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, zeroExtend16(getReg(pContext, fields.m)));
@@ -2871,8 +3212,16 @@ static int uxtb(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s",
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "zeroExtend8(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "zeroExtend8(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, zeroExtend8(getReg(pContext, fields.m)));
@@ -2921,7 +3270,7 @@ static int push(PinkySimContext* pContext, uint16_t instr)
 
         {
             logExeSetRegCmtStr(i, 0, "");
-            logExeSetRegValStr(i, 0, "arg%d", i);
+            logExeSetRegValStr(i, 0, FALSE, "arg%d", i);
         }
     }
     setReg(pContext, SP, getReg(pContext, SP) - 4 * bitCount(registers));
@@ -2934,7 +3283,7 @@ static int push(PinkySimContext* pContext, uint16_t instr)
             getReg(pContext, SP));
 
         logExeSetRegCmtStr(SP, 0, "");
-        logExeSetRegValStr(SP, 0, "0x%08x", 
+        logExeSetRegValStr(SP, 0, TRUE, "0x%08x", 
             getReg(pContext, SP));
 
         logExeCStyleSimplified("// SP = 0x%08x\n\n", 
@@ -3013,8 +3362,16 @@ static int rev(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "rev(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "rev(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, result);
@@ -3046,8 +3403,16 @@ static int rev16(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "rev16(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "rev16(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, result);
@@ -3079,8 +3444,16 @@ static int revsh(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, 0, "%s", 
             logExeGetRegCmtStr(op1_reg));
-        logExeSetRegValStr(result_reg, 0, "revsh(%s)", 
-            logExeGetRegValStr(op1_reg));
+        if (logExeGetRegHasConstVal(op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        }
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "revsh(%s)", 
+                logExeGetRegValStr(op1_reg));
+        }
     }
 
     setReg(pContext, fields.d, signExtend16(result));
@@ -3103,7 +3476,7 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleSimplified("}\n");
 
         logExeSetRegCmtStr(0, 0, "");
-        logExeSetRegValStr(0, 0, "retval");
+        logExeSetRegValStr(0, 0, FALSE, "retval");
     }
 
     address = getReg(pContext, SP);
@@ -3145,7 +3518,8 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
             getReg(pContext, SP));
 
         logExeSetRegCmtStr(SP, 0, "");
-        logExeSetRegValStr(SP, 0, "0x%08x", getReg(pContext, SP));
+        logExeSetRegValStr(SP, 0, TRUE, "0x%08x", 
+            getReg(pContext, SP));
 
         logExeCStyleSimplified("// SP = 0x%08x\n\n", 
             getReg(pContext, SP));
@@ -3328,14 +3702,23 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
         uint32_t addr_op1_reg = fields.n;
         uint32_t addr_op1_val = getReg(pContext, addr_op1_reg);
 	uint32_t result_reg = fields.n;
+	uint32_t result_val = addr_op1_val + 4 * bitCount(fields.registers);
 
         logExeCStyleVerbose("reg%d = reg%d + 4*bitCount(fields.registers); // = 0x%08x\n\n",
-            result_reg, addr_op1_reg, addr_op1_val + 4 * bitCount(fields.registers));
+            result_reg, addr_op1_reg, result_val);
 
         logExeSetRegCmtStr(result_reg, 0, "%s", 
             logExeGetRegCmtStr(addr_op1_reg));
-        logExeSetRegValStr(result_reg, 0, "(%s) + 0x%08x", 
-            logExeGetRegValStr(addr_op1_reg), 4 * bitCount(fields.registers));
+        if (logExeGetRegHasConstVal(addr_op1_reg))
+        {
+            logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                result_val);
+        } 
+        else
+        {
+            logExeSetRegValStr(result_reg, 0, FALSE, "(%s) + 0x%08x", 
+                logExeGetRegValStr(addr_op1_reg), 4 * bitCount(fields.registers));
+        }
 
         logExeCStyleSimplified("\n");
     }
@@ -3395,8 +3778,16 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
             
                 logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
                     logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
-                logExeSetRegValStr(result_reg, 0, "*(uint32_t*)0x%08x", 
-                    address);
+                if (logExeIsConstMem(address))
+                {
+                    logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, 0, FALSE, "*(uint32_t*)0x%08x", 
+                        address);
+                }
             
                 inc_cnt += 4;
             }
@@ -3411,14 +3802,23 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
             uint32_t addr_op1_reg = fields.n;
             uint32_t addr_op1_val = getReg(pContext, addr_op1_reg);
             uint32_t result_reg = fields.n;
+            uint32_t result_val = addr_op1_val + 4 * bitCount(fields.registers);
 
             logExeCStyleVerbose("reg%d = reg%d + 4*bitCount(fields.registers); // = 0x%08x\n",
-                result_reg, addr_op1_reg, addr_op1_val + 4 * bitCount(fields.registers));
+                result_reg, addr_op1_reg, result_val);
         
             logExeSetRegCmtStr(result_reg, 0, "%s", 
                 logExeGetRegCmtStr(addr_op1_reg));
-            logExeSetRegValStr(result_reg, 0, "(%s) + 0x%08x", 
-                logExeGetRegValStr(addr_op1_reg), 4 * bitCount(fields.registers));
+            if (logExeGetRegHasConstVal(addr_op1_reg))
+            {
+                logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, 0, FALSE, "(%s) + 0x%08x", 
+                    logExeGetRegValStr(addr_op1_reg), 4 * bitCount(fields.registers));
+            }
         }
 
         setReg(pContext, fields.n, getReg(pContext, fields.n) + 4 * bitCount(fields.registers));
@@ -3647,10 +4047,18 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
             {
                 logExeCStyleVerbose("// Move to Special Register: APSR = 0x%08x & reg%d (0x%08x)\n\n",
                     APSR_NZCV, n, value);
-                logExeSetCondCmtStr(APSR_NZCV, "%s", 
-                    logExeGetRegCmtStr(n));
-                logExeSetCondValStr(APSR_NZCV, "(%s) & 0x%08x", 
-                    logExeGetRegValStr(n), APSR_NZCV);
+                logExeSetCondCmtStr(APSR_NZCV, "%s%s", 
+                    logExeGetRegCmtStr(n), logExeGetCondCmtStr(APSR_NZCV));
+                if (logExeGetRegHasConstVal(n) && logExeGetCondHasConstVal(APSR_NZCV))
+                {
+                    logExeSetCondValStr(APSR_NZCV, TRUE, "0x%08x", 
+                        (pContext->xPSR & ~APSR_NZCV) | (value & APSR_NZCV));
+                }
+                else
+                {
+                    logExeSetCondValStr(APSR_NZCV, FALSE, "(%s) & 0x%08x", 
+                        logExeGetRegValStr(n), APSR_NZCV);
+                }
             }
 
             pContext->xPSR = (pContext->xPSR & ~APSR_NZCV) | (value & APSR_NZCV);
@@ -3669,7 +4077,7 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                          n, value);
                      logExeSetRegCmtStr(SP, 0, "%s", 
                          logExeGetRegCmtStr(n));
-                     logExeSetRegValStr(SP, 0, "(%s)", 
+                     logExeSetRegValStr(SP, 0, TRUE, "(%s)", 
                          logExeGetRegValStr(n));
                 }
                 break;
@@ -3798,7 +4206,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
     {
         logExeSetRegCmtStr(d, 0, "");
-        logExeSetRegValStr(d, 0, "0");
+        logExeSetRegValStr(d, 0, TRUE, "0");
     }
 
     switch (SYSm >> 3)
@@ -3823,7 +4231,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                 d, value);
 
             logExeSetRegCmtStr(d, 0, "");
-            logExeSetRegValStr(d, 0, "IPSR and APSR");
+            logExeSetRegValStr(d, 0, FALSE, "IPSR and APSR");
         }
         else if ((SYSm & (1 << 0)) && currentModeIsPrivileged(pContext))
         {
@@ -3831,7 +4239,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                 d, value);
 
             logExeSetRegCmtStr(d, 0, "");
-            logExeSetRegValStr(d, 0, "IPSR");
+            logExeSetRegValStr(d, 0, FALSE, "IPSR");
         }
         else if ((SYSm & (1 << 2)) == 0)
         {
@@ -3839,7 +4247,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                 d, value);
 
             logExeSetRegCmtStr(d, 0, "");
-            logExeSetRegValStr(d, 0, "APSR");
+            logExeSetRegValStr(d, 0, FALSE, "APSR");
         }
         break;
     case 1:
@@ -3854,7 +4262,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                         d, value);
 
                     logExeSetRegCmtStr(d, 0, "");
-                    logExeSetRegValStr(d, 0, "SP(main)");
+                    logExeSetRegValStr(d, 0, FALSE, "SP(main)");
                 }
                 break;
             case 1:
@@ -3863,7 +4271,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                     d, value);
 
                 logExeSetRegCmtStr(d, 0, "");
-                logExeSetRegValStr(d, 0, "(UNSUPPORTED) SP(process)");
+                logExeSetRegValStr(d, 0, FALSE, "(UNSUPPORTED) SP(process)");
                 break;
             }
         }
@@ -3878,7 +4286,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                     d, value);
 
                 logExeSetRegCmtStr(d, 0, "");
-                logExeSetRegValStr(d, 0, "PRIMASK.PM");
+                logExeSetRegValStr(d, 0, FALSE, "PRIMASK.PM");
             }
             break;
         case 4:
@@ -3888,7 +4296,7 @@ static int mrs(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                     d, value);
 
                 logExeSetRegCmtStr(d, 0, "");
-                logExeSetRegValStr(d, 0, "CONTROL");
+                logExeSetRegValStr(d, 0, FALSE, "CONTROL");
             }
             break;
         }
