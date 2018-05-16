@@ -2053,6 +2053,9 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
             logExeGetRegCmtStr(op1_reg));
         logExeCStyleSimplified("// At PC 0x%08x branching to (%s). LR = 0x%08x\n\n", 
             pContext->pc, logExeGetRegValStr(op1_reg), op2_val);
+
+        logExeSetRegValStr(LR, 0, FALSE, "At PC 0x%08x branching to (%s)",
+            pContext->pc, logExeGetRegValStr(op1_reg));
     }
 
     setReg(pContext, LR, nextInstrAddr | 1);
@@ -3261,16 +3264,17 @@ static int push(PinkySimContext* pContext, uint16_t instr)
                 logExeCStyleVerbose("// Save reg%d to Stack at 0x%08x (Value saved is 0x%08x)\n", 
                     i, address, getReg(pContext, i));
 
-                logExePushRegStrs(i);
+                // Push/pops for special registers are different... TODO: double check this thought process...
+                if (i <= 12)
+                {
+                    logExePushRegStrs(i);
+                }
+
+                // TODO: should we track memwrites to stack?? (or will this just be clutter...?)
             }
 
             alignedMemWrite(pContext, address, 4, getReg(pContext, i));
             address += 4;
-        }
-
-        {
-            logExeSetRegCmtStr(i, 0, "");
-            logExeSetRegValStr(i, 0, FALSE, "arg%d", i);
         }
     }
     setReg(pContext, SP, getReg(pContext, SP) - 4 * bitCount(registers));
@@ -3480,6 +3484,7 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
     }
 
     address = getReg(pContext, SP);
+//TODO: verify why up to 15 registers can be pushed, but only 8 can be popped...
     for (i = 0 ; i <= 7 ; i++)
     {
         if (registers & (1 << i))
@@ -4342,6 +4347,9 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
         logExeCStyleSimplified("// Branch from 0x%08x to 0x%08x (Set LR to 0x%08x)\n\n",
             pContext->pc, branchAddr, nextInstrAddr | 1);
+
+        logExeSetRegValStr(LR, 0, FALSE, "Branch from 0x%08x to 0x%08x",
+            pContext->pc, branchAddr);
     }
 
     return PINKYSIM_STEP_OK;

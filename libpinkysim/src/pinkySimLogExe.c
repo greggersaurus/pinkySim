@@ -545,6 +545,8 @@ const char* logExeGetMemInfo(uint32_t addr)
 {
 	const MemInfoEntry* entry = getMemInfoEntry(addr);
 
+//TODO: it would seem this is broken for some cases...?
+
 	if (entry) 
 	{
 		return entry->desc;
@@ -583,8 +585,9 @@ static int exeLogCNumTabs = 0;
 static const uint32_t MAX_DESC_STR_LEN = 128 + 32; //!< Maximum length of description
 	//!< field in exe log.
 
+//TODO: this too short...?
 static const uint32_t MAX_REG_STR_LEN = 1024;
-static const uint32_t MAX_REG_STR_STACK_SIZE = 8;
+static const uint32_t MAX_REG_STR_STACK_SIZE = 32;
 static const uint32_t NUM_REGS = 16; //! We do not track how PC gets updated. SP = 13, LR = 14
 
 uint32_t regStackDepths[NUM_REGS]; //!< Keeps tracks of how many pushes more pushes
@@ -769,6 +772,8 @@ void logExeEnable(const char* chipType)
         hasConstVals.apsr_v = TRUE;
 }
 
+static uint32_t csvEntryNum = 0;
+
 /**
  * Add entry into log so we can review execution later.
  *
@@ -784,14 +789,13 @@ void logExeEnable(const char* chipType)
 static void logExeCsvEntry(const struct PinkySimContext* context, uint32_t offset, 
 	uint32_t rawData, uint32_t size, const char* format, va_list arg)
 {
-	static uint32_t entryNum = 0;
 	size_t cnt = 0;
 
 	// Check if logging was enabled
 	if (!exeLogCsvFile)
 		return;
 
-	fprintf(exeLogCsvFile, "% 10d, ", entryNum);
+	fprintf(exeLogCsvFile, "% 10d, ", csvEntryNum);
 	fprintf(exeLogCsvFile, " 0x%08x, ", offset);
 	switch(size)
 	{
@@ -838,7 +842,7 @@ static void logExeCsvEntry(const struct PinkySimContext* context, uint32_t offse
 
 	fflush(exeLogCsvFile);
 
-	entryNum++;
+	csvEntryNum++;
 }
 
 /**
@@ -938,9 +942,10 @@ void logExeIncIndentCStyle() {
 	if (exeLogCNumTabs < 256) {
 		exeLogCNumTabs++;
 	} else {
-		fprintf(exeLogCFile, "/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-		fprintf(exeLogCFile, " * Attempt made to raise exeLogCNumTabs above 255.\n");
-		fprintf(exeLogCFile, " *!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/\n");
+		logExeCStyleVerbose("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above 255\n", 
+			csvEntryNum, __func__);
+		logExeCStyleSimplified("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above 255\n", 
+			csvEntryNum, __func__);
 	}
 }
 
@@ -954,9 +959,10 @@ void logExeDecIndentCStyle() {
 	if (exeLogCNumTabs) {
 		exeLogCNumTabs--;
 	} else {
-		fprintf(exeLogCFile, "/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-		fprintf(exeLogCFile, " * Attempt made to lower exeLogCNumTabs below zero.\n");
-		fprintf(exeLogCFile, " *!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/\n");
+		logExeCStyleVerbose("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above below zero\n", 
+			csvEntryNum, __func__);
+		logExeCStyleSimplified("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above below zero\n", 
+			csvEntryNum, __func__);
 	}
 }
 
@@ -1015,8 +1021,8 @@ static void logExeSetRegDescStr(const struct DescStrs* descStrs,
 
 	if (regNum >= NUM_REGS) 
 	{
-		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, 
-			regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
 		return;
 	}
 
@@ -1043,9 +1049,9 @@ static const char* logExeGetRegDescStr(const struct DescStrs* descStrs,
 {
 	if (regNum >= NUM_REGS) 
 	{
-		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, 
-			regNum);
-		return "invalid regNum";
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
+		return "ERROR: invalid regNum";
 	}
 
 	uint32_t stack_depth = regStackDepths[regNum];
@@ -1068,7 +1074,8 @@ static void logExeSetRegHasConstVal(uint32_t regNum, int isConstVal)
 {
 	if (regNum >= NUM_REGS) 
 	{
-		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
 	}
 
 	uint32_t stack_depth = regStackDepths[regNum];
@@ -1178,14 +1185,16 @@ void logExePushRegStrs(uint32_t regNum)
 {
 	if (regNum >= NUM_REGS) 
 	{
-		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
 		return;
 	}
 
 	uint32_t stack_depth = regStackDepths[regNum];
 	if (stack_depth >= MAX_REG_STR_STACK_SIZE-1)
 	{
-		logExeCStyleSimplified("%s: Attempt to go above max stack depth for reg %d\n\n", __func__, regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: Attempt to go above max stack depth for reg %d\n\n", 
+			csvEntryNum, __func__, regNum);
 		return;
 	}
 	regStackDepths[regNum] = stack_depth+1;
@@ -1204,14 +1213,16 @@ void logExePopRegStrs(uint32_t regNum)
 {
 	if (regNum >= NUM_REGS) 
 	{
-		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
 		return;
 	}
 
 	uint32_t stack_depth = regStackDepths[regNum];
 	if (!stack_depth)
 	{
-		logExeCStyleSimplified("%s: Attempt to go below min stack depth for reg %d\n\n", __func__, regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: Attempt to go below min stack depth for reg %d\n\n", 
+			csvEntryNum, __func__, regNum);
 		return;
 	}
 	regStackDepths[regNum] = stack_depth-1;
@@ -1246,7 +1257,7 @@ void logExeSetCondValStr(uint32_t cond, int isConstVal, const char* format, ...)
  *
  * \param descStr[in] Pointer to DescStrs to be updated (i.e. may pertain to
  *	value description strings or comment description strings).
- * \param cond Defines which conditional related string(s) to return.
+ * \param cond Defines which conditional(s) related string(s) to return.
  *
  * \return String as described above. 
  */
@@ -1255,41 +1266,31 @@ static const char* logExeGetCondDescStr(const struct DescStrs* descStrs,
 {
 	switch (cond) 
 	{
-	case APSR_NZCV:
+	case APSR_Z | APSR_N | APSR_V:
 		if (strncmp(descStrs->apsr_n, descStrs->apsr_z, MAX_REG_STR_LEN) ||
-			strncmp(descStrs->apsr_n, descStrs->apsr_c, MAX_REG_STR_LEN) ||
 			strncmp(descStrs->apsr_n, descStrs->apsr_v, MAX_REG_STR_LEN)) 
 		{
-			return "logExeGetCondDescStr(): APSR_NZCV string do not match";
+			logExeCStyleSimplified("ERROR(%d): %s: APSR_Z | APSR_N | APSR_V strings do not match\n\n", 
+				csvEntryNum, __func__);
+			return "ERROR: logExeGetCondDescStr(): APSR_Z | APSR_N | APSR_V string do not match";
 		}
 		return descStrs->apsr_n;
 
-	case APSR_NZC:
-		if (strncmp(descStrs->apsr_n, descStrs->apsr_z, MAX_REG_STR_LEN) ||
-			strncmp(descStrs->apsr_n, descStrs->apsr_c, MAX_REG_STR_LEN)) 
+	case APSR_N | APSR_V:
+		if (strncmp(descStrs->apsr_n, descStrs->apsr_v, MAX_REG_STR_LEN)) 
 		{
-			return "logExeGetCondDescStr(): APSR_NZC string do not match";
+			logExeCStyleSimplified("ERROR(%d): %s: APSR_N | APSR_V strings do not match\n\n", 
+				csvEntryNum, __func__);
+			return "ERROR: logExeGetCondDescStr(): APSR_N | APSR_V string do not match";
 		}
 		return descStrs->apsr_n;
 
-	case APSR_NZ:
-		if (strncmp(descStrs->apsr_n, descStrs->apsr_z, MAX_REG_STR_LEN)) 
-		{
-			return "logExeGetCondDescStr(): APSR_NZ string do not match";
-		}
-		return descStrs->apsr_n;
-
-	case APSR_NC:
-		if (strncmp(descStrs->apsr_n, descStrs->apsr_c, MAX_REG_STR_LEN)) 
-		{
-			return "logExeGetCondDescStr(): APSR_NC string do not match";
-		}
-		return descStrs->apsr_n;
-
-	case APSR_ZC:
+	case APSR_C | APSR_Z:
 		if (strncmp(descStrs->apsr_z, descStrs->apsr_c, MAX_REG_STR_LEN)) 
 		{
-			return "logExeGetCondDescStr(): APSR_ZC string do not match";
+			logExeCStyleSimplified("ERROR(%d): %s: APSR_C | APSR_Z strings do not match\n\n", 
+				csvEntryNum, __func__);
+			return "ERROR: logExeGetCondDescStr(): APSR_C | APSR_Z string do not match";
 		}
 		return descStrs->apsr_z;
 
@@ -1306,7 +1307,7 @@ static const char* logExeGetCondDescStr(const struct DescStrs* descStrs,
 		return descStrs->apsr_v;
 	}
 
-	return "logExeGetCondDescStr(): Invalid cond combo";
+	return "ERROR: logExeGetCondDescStr(): Invalid cond combo";
 }
 
 /**
@@ -1395,7 +1396,8 @@ int logExeGetRegHasConstVal(uint32_t regNum)
 {
 	if (regNum >= NUM_REGS) 
 	{
-		logExeCStyleSimplified("%s: invalid regNum %d\n\n", __func__, regNum);
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
 		return FALSE;
 	}
 
@@ -1417,48 +1419,33 @@ int logExeGetCondHasConstVal(uint32_t cond)
 {
 	switch (cond) 
 	{
-	case APSR_NZCV:
-		if (hasConstVals.apsr_n !=  hasConstVals.apsr_z ||
-			hasConstVals.apsr_n !=  hasConstVals.apsr_c ||
-			hasConstVals.apsr_n !=  hasConstVals.apsr_v)
+	case APSR_Z | APSR_N | APSR_V:
+		if (hasConstVals.apsr_n != hasConstVals.apsr_z ||
+			hasConstVals.apsr_n != hasConstVals.apsr_v)
 		{
-			logExeCStyleSimplified("%s: invalid case\n\n", __func__);
+			logExeCStyleSimplified("ERROR(%d): %s: APSR_Z | APSR_N | APSR_V match issue\n\n", 
+				csvEntryNum, __func__);
 			return FALSE;
 		}
 		return hasConstVals.apsr_n;
 
-	case APSR_NZC:
-		if (hasConstVals.apsr_n !=  hasConstVals.apsr_z ||
-			hasConstVals.apsr_n !=  hasConstVals.apsr_c)
+	case APSR_N | APSR_V:
+		if (hasConstVals.apsr_n !=  hasConstVals.apsr_v)
 		{
-			logExeCStyleSimplified("%s: invalid case\n\n", __func__);
+			logExeCStyleSimplified("ERROR(%d): %s: APSR_N | APSR_V match issue\n\n", 
+				csvEntryNum, __func__);
 			return FALSE;
 		}
 		return hasConstVals.apsr_n;
 
-	case APSR_NZ:
-		if (hasConstVals.apsr_n !=  hasConstVals.apsr_z)
-		{
-			logExeCStyleSimplified("%s: invalid case\n\n", __func__);
-			return FALSE;
-		}
-		return hasConstVals.apsr_n;
-
-	case APSR_NC:
-		if (hasConstVals.apsr_n !=  hasConstVals.apsr_c)
-		{
-			logExeCStyleSimplified("%s: invalid case\n\n", __func__);
-			return FALSE;
-		}
-		return hasConstVals.apsr_n;
-
-	case APSR_ZC:
+	case APSR_C | APSR_Z:
 		if (hasConstVals.apsr_z !=  hasConstVals.apsr_c)
 		{
-			logExeCStyleSimplified("%s: invalid case\n\n", __func__);
+			logExeCStyleSimplified("ERROR(%d): %s: APSR_C | APSR_Z match issue\n\n", 
+				csvEntryNum, __func__);
 			return FALSE;
 		}
-		return hasConstVals.apsr_z;
+		return hasConstVals.apsr_n;
 
 	case APSR_N:
 		return hasConstVals.apsr_n;
@@ -1473,6 +1460,7 @@ int logExeGetCondHasConstVal(uint32_t cond)
 		return hasConstVals.apsr_v;
 	}
 
-	logExeCStyleSimplified("%s: invalid case\n\n", __func__);
+	logExeCStyleSimplified("ERROR(%d): %s: invalid case\n\n", 
+		csvEntryNum, __func__);
 	return FALSE;
 }
