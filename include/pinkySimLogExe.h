@@ -52,6 +52,18 @@ void logExeCStyleSimplified(const char* format, ...);
 int logExeGetRegHasConstVal(uint32_t regNum);
 int logExeGetCondHasConstVal(uint32_t cond);
 
+typedef enum MemType
+{
+	MEM_TYPE_UNKNOWN = 0x0, 
+	MEM_TYPE_DATA_8BIT = 0x1, 
+	MEM_TYPE_DATA_16BIT = 0x2, 
+	MEM_TYPE_DATA_32BIT = 0x4, 
+	MEM_TYPE_INSTR_16BIT = 0x8,
+	MEM_TYPE_INSTR_32BIT = 0x10
+} MemType;
+
+void logExeLabelMem(uint32_t addr, MemType memType);
+
 //TODO: to close down file and deallocate, etc.
 //void logExeCleanup();
 

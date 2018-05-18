@@ -585,8 +585,7 @@ static int exeLogCNumTabs = 0;
 static const uint32_t MAX_DESC_STR_LEN = 128 + 32; //!< Maximum length of description
 	//!< field in exe log.
 
-//TODO: this too short...?
-static const uint32_t MAX_REG_STR_LEN = 1024;
+static const uint32_t MAX_REG_STR_LEN = 2048;
 static const uint32_t MAX_REG_STR_STACK_SIZE = 32;
 static const uint32_t NUM_REGS = 16; //! We do not track how PC gets updated. SP = 13, LR = 14
 
@@ -815,7 +814,6 @@ static void logExeCsvEntry(const struct PinkySimContext* context, uint32_t offse
 			break;
 	}
 	
-	//TODO: use vfprintf...
 	char desc[MAX_DESC_STR_LEN];
 	desc[MAX_DESC_STR_LEN-1] = 0;
 	vsnprintf(desc, MAX_DESC_STR_LEN, format, arg);
@@ -918,7 +916,7 @@ void logExeCStyleVerbose(const char* format, ...) {
 	char str[256];
 	va_start(args, format);
 
-	//TODO: use vfprintf...
+	//TODO: use vfprintf...??
 	str[sizeof(str)-1] = 0;
 	vsnprintf(str, sizeof(str), format, args);
 	fprintf(exeLogCFile, "%s", str);
@@ -1357,29 +1355,57 @@ const char* logExeGetCondCmtStr(uint32_t cond) {
  */
 void logExeCStyleSimplified(const char* format, ...) {
 	static needs_indent = 1;
-	va_list args;
 
 	// Check if logging was enabled
 	if (!exeLogCsvFile)
 		return;
 
-	if (needs_indent) 
-	{
-		for (int cnt = 0; cnt < exeLogCNumTabs; cnt++) 
-		{
-			fprintf(exeLogCSimpliedFile, "\t");
-		}
+	va_list args;
+	char str[2*MAX_REG_STR_LEN];
 
-		needs_indent = 0;
-	}
-
+	str[sizeof(str)-1] = 0;
 	va_start(args, format);
-	vfprintf(exeLogCSimpliedFile, format, args);
+	vsnprintf(str, sizeof(str), format, args);
 	va_end(args);
 
-	if (format[strlen(format)-1] == '\n') 
+	if (!strcmp("\n", str))
 	{
-		needs_indent = 1;
+		return;
+	}
+
+	uint32_t start_idx = 0;
+	uint32_t end_idx = 0;
+	for (end_idx = 0; end_idx < strlen(str); end_idx++)
+	{
+		if (str[end_idx] == '\n')
+		{
+			if (start_idx != end_idx) 
+			{
+				if (needs_indent) 
+				{
+					for (int cnt = 0; cnt < exeLogCNumTabs; cnt++) 
+					{
+						fprintf(exeLogCSimpliedFile, "\t");
+					}
+
+					needs_indent = 0;
+				}
+
+				fwrite(&str[start_idx], end_idx - start_idx + 1, 1, exeLogCSimpliedFile);
+
+				if (str[end_idx] == '\n') 
+				{
+					needs_indent = 1;
+				}
+			}
+
+			start_idx = end_idx+1;
+		}
+	}
+
+	if (start_idx <= end_idx)
+	{
+		fwrite(&str[start_idx], end_idx - start_idx, 1, exeLogCSimpliedFile);
 	}
 
 	fflush(exeLogCSimpliedFile);

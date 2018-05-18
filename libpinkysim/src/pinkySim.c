@@ -344,7 +344,8 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && (logExeGetCondHasConstVal(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -576,7 +577,8 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && (logExeGetCondHasConstVal(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -619,7 +621,8 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && (logExeGetCondHasConstVal(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -1215,7 +1218,8 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -1260,7 +1264,8 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -1305,7 +1310,8 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -1435,7 +1441,8 @@ static int rorRegister(PinkySimContext* pContext, uint16_t instr)
 
         logExeSetRegCmtStr( result_reg, APSR_NZC, "%s%s%s", 
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && logExeGetCondValStr(APSR_C))
+        // Carry in is ignored if shift amount is non-zero
+        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
         {
             logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
                 result_val);
@@ -1856,7 +1863,7 @@ static int addRegisterT2(PinkySimContext* pContext, uint16_t instr)
                 logExeGetRegCmtStr(op1_reg));
             logExeCStyleSimplified("%s\n", 
                 logExeGetRegCmtStr(op2_reg));
-            logExeCStyleSimplified("// PC = (%s) + (%s)\n\n",
+            logExeCStyleSimplified("// PC = (%s) + (%s)\n \n",
                 logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg));
         }
     }
@@ -1971,7 +1978,7 @@ static int movRegister(PinkySimContext* pContext, uint16_t instr)
         {
             logExeCStyleSimplified("%s\n", 
                 logExeGetRegCmtStr(op1_reg));
-            logExeCStyleSimplified("PC = %s\n\n", 
+            logExeCStyleSimplified("PC = %s\n \n", 
                 logExeGetRegValStr(op1_reg));
         }
     }
@@ -2004,7 +2011,7 @@ static int bx(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(op1_reg));
-        logExeCStyleSimplified("// At PC 0x%08x branching to (%s)\n\n", 
+        logExeCStyleSimplified("// At PC 0x%08x branching to (%s)\n \n", 
             pContext->pc, logExeGetRegValStr(op1_reg));
     }
 
@@ -2051,7 +2058,7 @@ static int blx(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(op1_reg));
-        logExeCStyleSimplified("// At PC 0x%08x branching to (%s). LR = 0x%08x\n\n", 
+        logExeCStyleSimplified("// At PC 0x%08x branching to (%s). LR = 0x%08x\n \n", 
             pContext->pc, logExeGetRegValStr(op1_reg), op2_val);
 
         logExeSetRegValStr(LR, 0, FALSE, "At PC 0x%08x branching to (%s)",
@@ -2092,7 +2099,7 @@ static int ldrLiteral(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint32_t*)0x%08x; // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s)\t", 
+        logExeSetRegCmtStr(result_reg, 0, "// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s)\n", 
             address, result_val, logExeGetMemInfo(address));
         if (logExeIsConstMem(address))
         {
@@ -2234,7 +2241,7 @@ static int strRegister(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint32_t*)0x%08x = %s; // = 0x%08x (modified bits = 0x%08x)\n\n", 
+        logExeCStyleSimplified("*(uint32_t*)0x%08x = %s; // = 0x%08x (modified bits = 0x%08x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2312,7 +2319,7 @@ static int strhRegister(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint16_t*)0x%08x = %s; // = 0x%04x (modified bits = 0x%04x)\n\n", 
+        logExeCStyleSimplified("*(uint16_t*)0x%08x = %s; // = 0x%04x (modified bits = 0x%04x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2353,7 +2360,7 @@ static int strbRegister(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint8_t*)0x%08x = %s; // = 0x%02x (modified bits = 0x%02x)\n\n", 
+        logExeCStyleSimplified("*(uint8_t*)0x%08x = %s; // = 0x%02x (modified bits = 0x%02x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2384,7 +2391,7 @@ static int ldrsbRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (int32_t)(*(int8_t*)0x%08x); // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s%s// (int32_t)(*(int8_t*)0x%08x) -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s%s// (int32_t)(*(int8_t*)0x%08x) -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\n", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         if (logExeIsConstMem(address))
@@ -2431,7 +2438,7 @@ static int ldrRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint32_t*)0x%08x; // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\n", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         if (logExeIsConstMem(address))
@@ -2475,7 +2482,7 @@ static int ldrhRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint16_t*)0x%08x; // = 0x%04x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint16_t*)0x%08x -> 0x%04x (MemRead %s) (Addr = (%s) + (%s))\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint16_t*)0x%08x -> 0x%04x (MemRead %s) (Addr = (%s) + (%s))\n", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         if (logExeIsConstMem(address))
@@ -2522,7 +2529,7 @@ static int ldrbRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint8_t*)0x%08x; // = 0x%02x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint8_t*)0x%08x -> 0x%02x (MemRead %s) (Addr = (%s) + (%s))\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s%s// *(uint8_t*)0x%08x -> 0x%02x (MemRead %s) (Addr = (%s) + (%s))\n", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         if (logExeIsConstMem(address))
@@ -2571,7 +2578,7 @@ static int ldrshRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (int32_t)(*(uint16_t*)0x%08x); // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s%s// (int32_t)(*(int16_t*)0x%08x) -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s%s// (int32_t)(*(int16_t*)0x%08x) -> 0x%08x (MemRead %s) (Addr = (%s) + (%s))\n", 
             logExeGetRegCmtStr(addr_op1_reg), logExeGetRegCmtStr(addr_op2_reg), address, result_val, logExeGetMemInfo(address), 
             logExeGetRegValStr(addr_op1_reg), logExeGetRegValStr(addr_op2_reg));
         if (logExeIsConstMem(address))
@@ -2625,7 +2632,7 @@ static int strImmediateT1(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint32_t*)0x%08x = %s; // = 0x%08x (modified bits = 0x%08x)\n\n", 
+        logExeCStyleSimplified("*(uint32_t*)0x%08x = %s; // = 0x%08x (modified bits = 0x%08x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2665,7 +2672,7 @@ static int ldrImmediateT1(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint32_t*)0x%08x; // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\n", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         if (logExeIsConstMem(address))
         {
@@ -2713,7 +2720,7 @@ static int strbImmediate(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint8_t*)0x%08x = %s; // = 0x%02x (modified bits = 0x%02x)\n\n", 
+        logExeCStyleSimplified("*(uint8_t*)0x%08x = %s; // = 0x%02x (modified bits = 0x%02x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2743,7 +2750,7 @@ static int ldrbImmediate(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint8_t*)0x%08x; // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint8_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint8_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\n", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         if (logExeIsConstMem(address))
         {
@@ -2791,7 +2798,7 @@ static int strhImmediate(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint16_t*)0x%08x = %s; // = 0x%04x (modified bits = 0x%04x)\n\n", 
+        logExeCStyleSimplified("*(uint16_t*)0x%08x = %s; // = 0x%04x (modified bits = 0x%04x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2821,7 +2828,7 @@ static int ldrhImmediate(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint16_t*)0x%08x; // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint16_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint16_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\n", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         if (logExeIsConstMem(address))
         {
@@ -2870,7 +2877,7 @@ static int strImmediateT2(PinkySimContext* pContext, uint16_t instr)
             logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         logExeCStyleSimplified("%s\n", 
             logExeGetRegCmtStr(wrval_reg));
-        logExeCStyleSimplified("*(uint32_t*)0x%08x = %s; // = 0x%08x (modified bits = 0x%08x)\n\n", 
+        logExeCStyleSimplified("*(uint32_t*)0x%08x = %s; // = 0x%08x (modified bits = 0x%08x)\n \n", 
             address, logExeGetRegValStr(wrval_reg), wrval_val, modified_bits);
     }
 
@@ -2901,7 +2908,7 @@ static int ldrImmediateT2(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = *(uint32_t*)0x%08x; // = 0x%08x\n\n", 
             result_reg, address, result_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
+        logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\n", 
             logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
         if (logExeIsConstMem(address))
         {
@@ -2940,7 +2947,7 @@ static int adr(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = PC + 0x%08x\n\n", 
             result_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (PC (0x%08x) + 0x%08x)\t",
+        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (PC (0x%08x) + 0x%08x)\n",
             result_val, op1_val, op2_val);
         logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
@@ -2971,7 +2978,7 @@ static int addSPT1(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = SP + 0x%08x\n\n", 
             result_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) + 0x%08x)\t",
+        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) + 0x%08x)\n",
             result_val, op1_val, op2_val);
         logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
@@ -3037,7 +3044,7 @@ static int addSPT2(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = SP + 0x%08x\n\n", 
             result_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) + 0x%08x)\t",
+        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) + 0x%08x)\n",
             result_val, op1_val, op2_val);
         logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
@@ -3077,7 +3084,7 @@ static int subSP(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = SP - 0x%08x;\n\n", 
             result_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) - 0x%08x)\t",
+        logExeSetRegCmtStr(result_reg, 0, "// 0x%08x (SP (0x%08x) - 0x%08x)\n",
             result_val, op1_val, op2_val);
         logExeSetRegValStr(result_reg, 0, TRUE, "0x%08x", 
             result_val);
@@ -3269,8 +3276,6 @@ static int push(PinkySimContext* pContext, uint16_t instr)
                 {
                     logExePushRegStrs(i);
                 }
-
-                // TODO: should we track memwrites to stack?? (or will this just be clutter...?)
             }
 
             alignedMemWrite(pContext, address, 4, getReg(pContext, i));
@@ -3290,7 +3295,7 @@ static int push(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegValStr(SP, 0, TRUE, "0x%08x", 
             getReg(pContext, SP));
 
-        logExeCStyleSimplified("// SP = 0x%08x\n\n", 
+        logExeCStyleSimplified("// SP = 0x%08x\n \n", 
             getReg(pContext, SP));
     }
 
@@ -3329,7 +3334,7 @@ static int cps(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_OK;
@@ -3509,7 +3514,7 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
             logExeCStyleVerbose("// Restore PC from Stack at 0x%08x (Value saved was 0x%08x)\n", 
                 address, alignedMemRead(pContext, address, 4));
 
-            logExeCStyleSimplified("// PC = 0x%08x\n\n", 
+            logExeCStyleSimplified("// PC = 0x%08x\n \n", 
                 alignedMemRead(pContext, address, 4));
         }
     }
@@ -3526,7 +3531,7 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
         logExeSetRegValStr(SP, 0, TRUE, "0x%08x", 
             getReg(pContext, SP));
 
-        logExeCStyleSimplified("// SP = 0x%08x\n\n", 
+        logExeCStyleSimplified("// SP = 0x%08x\n \n", 
             getReg(pContext, SP));
     }
 
@@ -3577,7 +3582,7 @@ static int nop(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_OK;
@@ -3590,7 +3595,7 @@ static int yield(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_UNSUPPORTED;
@@ -3603,7 +3608,7 @@ static int wfe(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_UNSUPPORTED;
@@ -3616,7 +3621,7 @@ static int wfi(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_UNSUPPORTED;
@@ -3629,7 +3634,7 @@ static int sev(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_UNSUPPORTED;
@@ -3642,7 +3647,7 @@ static int treatAsNop(PinkySimContext* pContext, uint16_t instr)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_OK;
@@ -3725,7 +3730,8 @@ static int stm(PinkySimContext* pContext, uint16_t instr)
                 logExeGetRegValStr(addr_op1_reg), 4 * bitCount(fields.registers));
         }
 
-        logExeCStyleSimplified("\n");
+//TODO: need to fix this needing a space before just a \n...
+        logExeCStyleSimplified(" \n");
     }
 
     setReg(pContext, fields.n, getReg(pContext, fields.n) + 4 * bitCount(fields.registers));
@@ -3781,7 +3787,7 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
                 logExeCStyleVerbose("reg%d = *(uint32_t*)0x%08x; // = 0x%08x\n", 
                     result_reg, address, result_val);
             
-                logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\t", 
+                logExeSetRegCmtStr(result_reg, 0, "%s// *(uint32_t*)0x%08x -> 0x%08x (MemRead %s) (Addr = (%s) + 0x%08x)\n", 
                     logExeGetRegCmtStr(addr_op1_reg), address, result_val, logExeGetMemInfo(address), logExeGetRegValStr(addr_op1_reg), addr_op2_val);
                 if (logExeIsConstMem(address))
                 {
@@ -3831,7 +3837,7 @@ static int ldm(PinkySimContext* pContext, uint16_t instr)
 
     {
         logExeCStyleVerbose("\n");
-        logExeCStyleSimplified("\n");
+        logExeCStyleSimplified(" \n");
     }
 
     return PINKYSIM_STEP_OK;
@@ -3909,13 +3915,15 @@ static int conditionalBranch(PinkySimContext* pContext, uint16_t instr)
             pContext->newPC);
         logExeCStyleVerbose("}\n\n");
 
+//TODO: don't print if conditional(s) is constant??? Think this through, is it really what we want?
+//	This will eliminate reptative prints, but also come at cost of clouding where loops are... (essentially this is loop unrolling, right?)
         logExeCStyleSimplified("%s\n", 
             logExeGetCondCmtStr(cond_lut[cond_idx]));
         logExeCStyleSimplified("if (%s) is NOT (%s)\n", 
             logExeGetCondValStr(cond_lut[cond_idx]), cond_strs[cond_idx]);
-        logExeCStyleSimplified("\t// Execute 0x%08x\n", 
+        logExeCStyleSimplified("\t// Would Execute 0x%08x\n", 
             pContext->newPC);
-        logExeCStyleSimplified("// Branch to 0x%08x\n\n", 
+        logExeCStyleSimplified("// Branch to 0x%08x\n \n", 
             branchAddr);
 
         branchWritePC(pContext, getReg(pContext, PC) + imm32);
@@ -3936,9 +3944,9 @@ static int conditionalBranch(PinkySimContext* pContext, uint16_t instr)
             logExeGetCondCmtStr(cond_lut[cond_idx]));
         logExeCStyleSimplified("if (%s) is (%s)\n", 
             logExeGetCondValStr(cond_lut[cond_idx]), cond_strs[cond_idx]);
-        logExeCStyleSimplified("\t// Branch to 0x%08x\n", 
+        logExeCStyleSimplified("\t// Would Branch to 0x%08x\n", 
             branchAddr);
-        logExeCStyleSimplified("// Execute 0x%08x\n\n", 
+        logExeCStyleSimplified("// Execute 0x%08x\n \n", 
             pContext->newPC);
     }
 
@@ -3996,7 +4004,7 @@ static int unconditionalBranch(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("// Branching from PC = 0x%08x to PC = 0x%08x\n\n", 
             pContext->pc, pContext->newPC);
 
-        logExeCStyleSimplified("// Branching from PC = 0x%08x to PC = 0x%08x\n\n", 
+        logExeCStyleSimplified("// Branching from PC = 0x%08x to PC = 0x%08x\n \n", 
             pContext->pc, pContext->newPC);
     }
 
@@ -4091,7 +4099,7 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                 {
                     logExeCStyleVerbose("// (UNSUPPORTED) Move to Special Register: SP(process) = reg%d (0x%08x)\n\n",
                         n, value);
-                    logExeCStyleSimplified("// (UNSUPPORTED) Move to Special Register: SP(process) = reg%d (0x%08x)\n\n",
+                    logExeCStyleSimplified("// (UNSUPPORTED) Move to Special Register: SP(process) = reg%d (0x%08x)\n \n",
                         n, value);
                 }
                 break;
@@ -4109,7 +4117,7 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                 {
                     logExeCStyleVerbose("// Move to Special Register: PRIMASK.PM = 0x%08x & reg%d (0x%08x)\n\n",
                         PRIMASK_PM, n, value);
-                    logExeCStyleSimplified("// Move to Special Register: PRIMASK.PM = 0x%08x & reg%d (0x%08x)\n\n",
+                    logExeCStyleSimplified("// Move to Special Register: PRIMASK.PM = 0x%08x & reg%d (0x%08x)\n \n",
                         PRIMASK_PM, n, value);
                 }
 
@@ -4119,7 +4127,7 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                 {
                     logExeCStyleVerbose("// (UNSUPPORTED) Move to Special Register: Thread Mode... reg%d (0x%08x)\n\n",
                         n, value);
-                    logExeCStyleSimplified("// (UNSUPPORTED) Move to Special Register: Thread Mode... reg%d (0x%08x)\n\n",
+                    logExeCStyleSimplified("// (UNSUPPORTED) Move to Special Register: Thread Mode... reg%d (0x%08x)\n \n",
                         n, value);
                 }
                 break;
@@ -4158,7 +4166,7 @@ static int dsb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_OK;
@@ -4174,7 +4182,7 @@ static int dmb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_OK;
@@ -4190,7 +4198,7 @@ static int isb(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
 
         logExeCStyleVerbose("__%s\n\n", __func__);
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s\n \n", __func__);
     }
 
     return PINKYSIM_STEP_OK;
@@ -4345,7 +4353,7 @@ static int bl(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
         logExeCStyleVerbose("// Branch from 0x%08x to 0x%08x (Set LR to 0x%08x)\n\n",
             pContext->pc, branchAddr, nextInstrAddr | 1);
 
-        logExeCStyleSimplified("// Branch from 0x%08x to 0x%08x (Set LR to 0x%08x)\n\n",
+        logExeCStyleSimplified("// Branch from 0x%08x to 0x%08x (Set LR to 0x%08x)\n \n",
             pContext->pc, branchAddr, nextInstrAddr | 1);
 
         logExeSetRegValStr(LR, 0, FALSE, "Branch from 0x%08x to 0x%08x",
