@@ -342,18 +342,36 @@ static int lslImmediate(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (uint32_t)reg%d << %d ;\n\n", 
             result_reg, op1_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && (logExeGetCondHasConstVal(APSR_C) || op2_val))
+        if (op2_val) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+           logExeSetRegCmtStr(result_reg, APSR_NZC, "%s", 
+               logExeGetRegCmtStr(op1_reg));
+            if (logExeGetRegHasConstVal(op1_reg))
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << %d", 
+                    logExeGetRegValStr(op1_reg), op2_val);
+            }
         }
         else
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << %d carry(%s)", 
-                logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+           logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+               logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+            if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s)", 
+                    logExeGetRegValStr(op1_reg));
+            }
         }
     }
 
@@ -575,18 +593,36 @@ static int lsrImmediate(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (uint32_t)reg%d >> %d;\n\n", 
             result_reg, op1_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && (logExeGetCondHasConstVal(APSR_C) || op2_val))
+        if (op2_val) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+           logExeSetRegCmtStr(result_reg, APSR_NZC, "%s", 
+               logExeGetRegCmtStr(op1_reg));
+            if (logExeGetRegHasConstVal(op1_reg))
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) >> %d", 
+                    logExeGetRegValStr(op1_reg), op2_val);
+            }
         }
         else
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) >> %d carry(%s)", 
-                logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+           logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+               logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+            if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s)", 
+                    logExeGetRegValStr(op1_reg));
+            }
         }
     }
 
@@ -619,18 +655,36 @@ static int asrImmediate(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (int32_t)reg%d >> %d;\n\n", 
             result_reg, op1_reg, op2_val);
 
-        logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && (logExeGetCondHasConstVal(APSR_C) || op2_val))
+        if (op2_val) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+           logExeSetRegCmtStr(result_reg, APSR_NZC, "%s", 
+               logExeGetRegCmtStr(op1_reg));
+            if (logExeGetRegHasConstVal(op1_reg))
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s) >> %d", 
+                    logExeGetRegValStr(op1_reg), op2_val);
+            }
         }
         else
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s) >> %d carry(%s)", 
-                logExeGetRegValStr(op1_reg), op2_val, logExeGetCondValStr(APSR_C));
+           logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+               logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+            if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                    result_val);
+            }
+            else
+            {
+                logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s)", 
+                    logExeGetRegValStr(op1_reg));
+            }
         }
     }
 
@@ -1216,17 +1270,46 @@ static int lslRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (uint32_t)reg%d << reg%d;\n\n", 
             result_reg, op1_reg, op2_reg);
 
-        logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
+        if (logExeGetRegHasConstVal(op2_reg)) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+            // Carry in is ignored if shift amount is non-zero
+            if (op2_val) 
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
+                if (logExeGetRegHasConstVal(op1_reg))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << %d", 
+                        logExeGetRegValStr(op1_reg), op2_val);
+                }
+            }
+            else
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+                if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s)", 
+                        logExeGetRegValStr(op1_reg));
+                }
+            }
         }
         else
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << (%s) carry(%s)", 
+            logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
+                logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
+            logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) << (%s); carryIn(%s)", 
                 logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
         }
     }
@@ -1262,16 +1345,45 @@ static int lsrRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (uint32_t)reg%d >> reg%d;\n\n", 
             result_reg, op1_reg, op2_reg);
 
-        logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
+        if (logExeGetRegHasConstVal(op2_reg)) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+            // Carry in is ignored if shift amount is non-zero
+            if (op2_val) 
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
+                if (logExeGetRegHasConstVal(op1_reg))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) >> %d", 
+                        logExeGetRegValStr(op1_reg), op2_val);
+                }
+            }
+            else
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+                if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s)", 
+                        logExeGetRegValStr(op1_reg));
+                }
+            }
         }
         else
         {
+            logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
+                logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
             logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(uint32_t)(%s) >> (%s) carry(%s)", 
                 logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
         }
@@ -1308,16 +1420,45 @@ static int asrRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = (int32_t)reg%d >> reg%d;\n\n", 
             result_reg, op1_reg, op2_reg);
 
-        logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
+        if (logExeGetRegHasConstVal(op2_reg)) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+            // Carry in is ignored if shift amount is non-zero
+            if (op2_val) 
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
+                if (logExeGetRegHasConstVal(op1_reg))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s) >> %d", 
+                        logExeGetRegValStr(op1_reg), op2_val);
+                }
+            }
+            else
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+                if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s)", 
+                        logExeGetRegValStr(op1_reg));
+                }
+            }
         }
         else
         {
+            logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s%s", 
+                logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
             logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(int32_t)(%s) >> (%s) carry(%s)", 
                 logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
         }
@@ -1439,16 +1580,45 @@ static int rorRegister(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleVerbose("reg%d = reg%d ror reg%d;\n\n", 
             result_reg, op1_reg, op2_reg);
 
-        logExeSetRegCmtStr( result_reg, APSR_NZC, "%s%s%s", 
-            logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
         // Carry in is ignored if shift amount is non-zero
-        if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg) && (logExeGetCondValStr(APSR_C) || op2_val))
+        if (logExeGetRegHasConstVal(op2_reg)) 
         {
-            logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
-                result_val);
+            // Carry in is ignored if shift amount is non-zero
+            if (op2_val) 
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
+                if (logExeGetRegHasConstVal(op1_reg))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(%s) ror %d", 
+                        logExeGetRegValStr(op1_reg), op2_val);
+                }
+            }
+            else
+            {
+               logExeSetRegCmtStr(result_reg, APSR_NZC, "%s%s", 
+                   logExeGetRegCmtStr(op1_reg), logExeGetCondCmtStr(APSR_C));
+                if (logExeGetRegHasConstVal(op1_reg) && logExeGetCondHasConstVal(APSR_C))
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, TRUE, "0x%08x", 
+                        result_val);
+                }
+                else
+                {
+                    logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(%s)", 
+                        logExeGetRegValStr(op1_reg));
+                }
+            }
         }
         else
         {
+            logExeSetRegCmtStr( result_reg, APSR_NZC, "%s%s%s", 
+                logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg), logExeGetCondCmtStr(APSR_C));
             logExeSetRegValStr(result_reg, APSR_NZC, FALSE, "(%s) ror (%s) carry(%s)", 
                 logExeGetRegValStr(op1_reg), logExeGetRegValStr(op2_reg), logExeGetCondValStr(APSR_C));
         }
