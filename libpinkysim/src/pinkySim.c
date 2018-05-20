@@ -15,6 +15,7 @@
 #include <MallocFailureInject.h>
 #include <pinkySim.h>
 #include <pinkySimLogExe.h>
+#include <string.h>
 
 /* Fields decoded from instructions. */
 typedef struct Fields
@@ -2512,7 +2513,7 @@ static int strbRegister(PinkySimContext* pContext, uint16_t instr)
         uint32_t wrval_reg = fields.t;
         uint32_t wrval_val = 0xFF&getReg(pContext, wrval_reg);
 
-        uint32_t modified_bits = 0xFF&(unalignedMemRead(pContext, address, 2) ^ wrval_val);
+        uint32_t modified_bits = 0xFF&(unalignedMemRead(pContext, address, 1) ^ wrval_val);
 
         logExeInstr16(pContext, instr, "%s: MemWrite value of Reg %d (0x%02x) to address 0x%08x: %s (Address = Reg %d (0x%08x) + Reg %d (0x%08x)). Modified Bits = 0x%02x",
             __func__, wrval_reg, wrval_val, address, logExeGetMemInfo(address), addr_op1_reg, addr_op1_val, addr_op2_reg, addr_op2_val, modified_bits);
@@ -3418,14 +3419,31 @@ static int push(PinkySimContext* pContext, uint16_t instr)
         __throw(unpredictableException);
 
     {
-        logExeCStyleVerbose("?? fnc_0x%08x( ?? )\n", getReg(pContext, PC));
+        logExeCStyleVerbose("?? fnc0x%08x( ?? )\n", pContext->pc);
         logExeCStyleVerbose("{\n");
 
-        logExeCStyleSimplified("?? fnc_0x%08x( ", getReg(pContext, PC));
-        for (int cnt = 0; cnt < 13; cnt++) 
+        int cnt = 0;
+        // Only general purpose registers may hold function arguments 
+        //  (and R0-R7 may really only be used....)
+        for (cnt = 0; cnt <= R12; cnt++) 
         {
-            logExeCStyleSimplified("arg_0x%08x_%d (%s), ", 
-                getReg(pContext, PC), cnt, logExeGetRegValStr(cnt));
+            if (strlen(logExeGetRegValStr(cnt)))
+            {
+                logExeCStyleSimplified("%s", 
+                    logExeGetRegCmtStr(cnt));
+                logExeCStyleSimplified("//\targ0x%08x_%d = (%s)\n", 
+                    pContext->pc, cnt, logExeGetRegValStr(cnt));
+                logExeCStyleSimplified("//\n");
+            }
+        }
+        logExeCStyleSimplified("?? fnc0x%08x( ", pContext->pc);
+        for (cnt = 0; cnt <= R12; cnt++) 
+        {
+            if (strlen(logExeGetRegValStr(cnt)))
+            {
+                logExeCStyleSimplified("arg0x%08x_%d, ", 
+                    pContext->pc, cnt);
+            }
         }
         logExeCStyleSimplified(")\n");
         logExeCStyleSimplified("{\n");
@@ -3436,23 +3454,32 @@ static int push(PinkySimContext* pContext, uint16_t instr)
     address = getReg(pContext, SP) - 4 * bitCount(registers);
     for (i = 0 ; i <= 14 ; i++)
     {
+        // Note encoding only allows for R0-R7 and LR to be pushed
         if (registers & (1 << i))
         {
             {
                 logExeCStyleVerbose("// Save reg%d to Stack at 0x%08x (Value saved is 0x%08x)\n", 
                     i, address, getReg(pContext, i));
 
-                // Push/pops for special registers are different... TODO: double check this thought process...
-                if (i <= 12)
+                // We only push general registers for logging tracking purposes
+                // Setting upper limit to R12 is overkill due to encoding limits
+                if (i <= R12)
                 {
                     logExePushRegStrs(i);
-                    logExeSetRegValStr(i, 0, FALSE, "arg0x%08x_%d", 
-                        getReg(pContext, PC), i);
                 }
             }
 
             alignedMemWrite(pContext, address, 4, getReg(pContext, i));
             address += 4;
+        }
+
+        if (i <= R12)
+        {
+            if (strlen(logExeGetRegValStr(i)))
+            {
+                logExeSetRegValStr(i, 0, FALSE, "arg0x%08x_%d", 
+                    pContext->pc, i);
+            }
         }
     }
     setReg(pContext, SP, getReg(pContext, SP) - 4 * bitCount(registers));
@@ -3658,16 +3685,16 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleSimplified("}\n\n");
 
 	logExeCStyleSimplified("%s", logExeGetRegCmtStr(0));
-	logExeCStyleSimplified("// retval_0x%08x = (%s)\n\n", 
-            getReg(pContext, PC), logExeGetRegValStr(0));
+	logExeCStyleSimplified("// retval0x%08x = (%s)\n\n", 
+            pContext->pc, logExeGetRegValStr(0));
 
         logExeSetRegCmtStr(0, 0, "");
-        logExeSetRegValStr(0, 0, FALSE, "retval_0x%08x",
-            getReg(pContext, PC));
+        logExeSetRegValStr(0, 0, FALSE, "retval0x%08x",
+            pContext->pc);
     }
 
     address = getReg(pContext, SP);
-//TODO: verify why up to 15 registers can be pushed, but only 8 can be popped...
+    // Note encoding only allows for R0-R7 and PC to be popped
     for (i = 0 ; i <= 7 ; i++)
     {
         if (registers & (1 << i))
