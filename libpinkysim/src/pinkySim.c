@@ -3530,11 +3530,14 @@ static int cps(PinkySimContext* pContext, uint16_t instr)
     }
 
     {
-        logExeInstr16(pContext, instr, "%s", __func__);
+        logExeInstr16(pContext, instr, "%s Interrupt %s", 
+            __func__, im?"Disable":"Enable");
 
-        logExeCStyleVerbose("__%s\n\n", __func__);
+        logExeCStyleVerbose("__%s Interrupt %s\n\n", 
+            __func__, im?"Disable":"Enable");
 
-        logExeCStyleSimplified("__%s\n\n", __func__);
+        logExeCStyleSimplified("__%s Interrupt %s\n\n", 
+            __func__, im?"Disable":"Enable");
     }
 
     return PINKYSIM_STEP_OK;
