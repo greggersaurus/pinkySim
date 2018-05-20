@@ -1363,50 +1363,43 @@ void logExeCStyleSimplified(const char* format, ...) {
 	va_list args;
 	char str[2*MAX_REG_STR_LEN];
 
-	str[sizeof(str)-1] = 0;
 	va_start(args, format);
 	vsnprintf(str, sizeof(str), format, args);
 	va_end(args);
+	str[sizeof(str)-1] = 0;
 
-	if (!strcmp("\n", str))
+	if (!strlen(str))
 	{
 		return;
 	}
 
 	uint32_t start_idx = 0;
 	uint32_t end_idx = 0;
-	for (end_idx = 0; end_idx < strlen(str); end_idx++)
+	do 
 	{
-		if (str[end_idx] == '\n')
+		if (str[end_idx] == '\n' || end_idx == strlen(str)-1)
 		{
-			if (start_idx != end_idx) 
+			if (needs_indent) 
 			{
-				if (needs_indent) 
+				for (int cnt = 0; cnt < exeLogCNumTabs; cnt++) 
 				{
-					for (int cnt = 0; cnt < exeLogCNumTabs; cnt++) 
-					{
-						fprintf(exeLogCSimpliedFile, "\t");
-					}
-
-					needs_indent = 0;
+					fprintf(exeLogCSimpliedFile, "\t");
 				}
 
-				fwrite(&str[start_idx], end_idx - start_idx + 1, 1, exeLogCSimpliedFile);
+				needs_indent = 0;
+			}
 
-				if (str[end_idx] == '\n') 
-				{
-					needs_indent = 1;
-				}
+			fwrite(&str[start_idx], end_idx - start_idx + 1, 1, exeLogCSimpliedFile);
+
+			if (str[end_idx] == '\n')
+			{
+				needs_indent = 1;
 			}
 
 			start_idx = end_idx+1;
 		}
-	}
-
-	if (start_idx <= end_idx)
-	{
-		fwrite(&str[start_idx], end_idx - start_idx, 1, exeLogCSimpliedFile);
-	}
+		end_idx++;
+	} while (end_idx < strlen(str));
 
 	fflush(exeLogCSimpliedFile);
 }
