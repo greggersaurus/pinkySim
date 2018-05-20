@@ -269,6 +269,8 @@ static const struct MemInfoEntry LPC11U37_MEM_INFO[] =
 	{0x40048030, 0x40048034-1, "system control: SYSRSTSTAT", FALSE},
 	{0x40048040, 0x40048044-1, "system control: SYSPLLCLKSEL", FALSE},
 	{0x40048044, 0x40048048-1, "system control: SYSPLLCLKUEN", FALSE},
+	{0x40048048, 0x4004804C-1, "system control: USBPLLCLKSEL", FALSE},
+	{0x4004804C, 0x40048050-1, "system control: USBPLLCLKUEN", FALSE},
 	{0x40048070, 0x40048074-1, "system control: MAINCLKSEL", FALSE},
 	{0x40048074, 0x40048078-1, "system control: MAINCLKUEN", FALSE},
 	{0x40048078, 0x4004807C-1, "system control: SYSAHBCLKDIV", FALSE},
@@ -545,8 +547,6 @@ const char* logExeGetMemInfo(uint32_t addr)
 {
 	const MemInfoEntry* entry = getMemInfoEntry(addr);
 
-//TODO: it would seem this is broken for some cases...?
-
 	if (entry) 
 	{
 		return entry->desc;
@@ -727,10 +727,10 @@ void logExeEnable(const char* chipType)
 		for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
 		{
 			logExeSetRegCmtStr(reg_num, 0, ""); 
-			logExeSetRegValStr(reg_num, 0, FALSE, "Init"); 
+			logExeSetRegValStr(reg_num, 0, FALSE, ""); 
 			logExePushRegStrs(reg_num);
 		}
-		logExeSetRegValStr(reg_num, 0, FALSE, "Init"); 
+		logExeSetRegValStr(reg_num, 0, FALSE, ""); 
 		for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
 		{
 			logExePopRegStrs(reg_num);
@@ -756,7 +756,7 @@ void logExeEnable(const char* chipType)
 		logExePopRegStrs(15);
 	}
 
-	logExeSetCondValStr(APSR_NZCV, FALSE, "Init");
+	logExeSetCondValStr(APSR_NZCV, FALSE, "");
 
 	logExeIncIndentCStyle();
 
