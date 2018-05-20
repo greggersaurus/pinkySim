@@ -3424,7 +3424,8 @@ static int push(PinkySimContext* pContext, uint16_t instr)
         logExeCStyleSimplified("?? fnc_0x%08x( ", getReg(pContext, PC));
         for (int cnt = 0; cnt < 13; cnt++) 
         {
-            logExeCStyleSimplified("arg%d (%s), ", cnt, logExeGetRegValStr(cnt));
+            logExeCStyleSimplified("arg_0x%08x_%d (%s), ", 
+                getReg(pContext, PC), cnt, logExeGetRegValStr(cnt));
         }
         logExeCStyleSimplified(")\n");
         logExeCStyleSimplified("{\n");
@@ -3445,9 +3446,8 @@ static int push(PinkySimContext* pContext, uint16_t instr)
                 if (i <= 12)
                 {
                     logExePushRegStrs(i);
-//TODO: is this was we want? Will simply function calls less, but leave them easier to match up if called more than once?
-//TODO: make this arg%d_%d (where first is current stack depth...
-                    logExeSetRegValStr(i, 0, FALSE, "arg%d", i);
+                    logExeSetRegValStr(i, 0, FALSE, "arg0x%08x_%d", 
+                        getReg(pContext, PC), i);
                 }
             }
 
@@ -3655,10 +3655,15 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
         logExeDecIndentCStyle();
 
         logExeCStyleVerbose("}\n");
-        logExeCStyleSimplified("}\n");
+        logExeCStyleSimplified("}\n\n");
+
+	logExeCStyleSimplified("%s", logExeGetRegCmtStr(0));
+	logExeCStyleSimplified("// retval_0x%08x = (%s)\n\n", 
+            getReg(pContext, PC), logExeGetRegValStr(0));
 
         logExeSetRegCmtStr(0, 0, "");
-        logExeSetRegValStr(0, 0, FALSE, "retval");
+        logExeSetRegValStr(0, 0, FALSE, "retval_0x%08x",
+            getReg(pContext, PC));
     }
 
     address = getReg(pContext, SP);
