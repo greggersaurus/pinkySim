@@ -937,9 +937,12 @@ void logExeCStyleVerbose(const char* format, ...) {
  * \return None.
  */
 void logExeIncIndentCStyle() {
-	if (exeLogCNumTabs < 256) {
+	if (exeLogCNumTabs < 256) 
+	{
 		exeLogCNumTabs++;
-	} else {
+	} 
+	else 
+	{
 		logExeCStyleVerbose("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above 255\n", 
 			csvEntryNum, __func__);
 		logExeCStyleSimplified("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above 255\n", 
@@ -953,10 +956,14 @@ void logExeIncIndentCStyle() {
  *
  * \return None.
  */
-void logExeDecIndentCStyle() {
-	if (exeLogCNumTabs) {
+void logExeDecIndentCStyle() 
+{
+	if (exeLogCNumTabs) 
+	{
 		exeLogCNumTabs--;
-	} else {
+	} 
+	else 
+	{
 		logExeCStyleVerbose("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above below zero\n", 
 			csvEntryNum, __func__);
 		logExeCStyleSimplified("ERROR(%d): %s: Attempt made to raise exeLogCNumTabs above below zero\n", 
