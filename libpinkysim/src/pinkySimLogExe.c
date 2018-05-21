@@ -983,24 +983,36 @@ void logExeDecIndentCStyle()
  *
  * \return None.
  */
-static void logExeSetCondDescStrOnly(const struct DescStrs* descStrs, 
+static void logExeSetCondDescStrOnly(struct DescStrs* descStrs, 
 	uint32_t cond, const char* str)
 {
 	if (cond & APSR_N)
 	{
-		memcpy((void*)descStrs->apsr_n, str, MAX_REG_STR_LEN);
+		memcpy(descStrs->apsr_n, str, MAX_REG_STR_LEN);
+		// Just in case strings get too long
+		descStrs->apsr_n[MAX_REG_STR_LEN-2] = '\n';
+		descStrs->apsr_n[MAX_REG_STR_LEN-1] = 0;
 	}
 	if (cond & APSR_Z)
 	{
-		memcpy((void*)descStrs->apsr_z, str, MAX_REG_STR_LEN);
+		memcpy(descStrs->apsr_z, str, MAX_REG_STR_LEN);
+		// Just in case strings get too long
+		descStrs->apsr_z[MAX_REG_STR_LEN-2] = '\n';
+		descStrs->apsr_z[MAX_REG_STR_LEN-1] = 0;
 	}
 	if (cond & APSR_C)
 	{
-		memcpy((void*)descStrs->apsr_c, str, MAX_REG_STR_LEN);
+		memcpy(descStrs->apsr_c, str, MAX_REG_STR_LEN);
+		// Just in case strings get too long
+		descStrs->apsr_c[MAX_REG_STR_LEN-2] = '\n';
+		descStrs->apsr_c[MAX_REG_STR_LEN-1] = 0;
 	}
 	if (cond & APSR_V)
 	{
-		memcpy((void*)descStrs->apsr_v, str, MAX_REG_STR_LEN);
+		memcpy(descStrs->apsr_v, str, MAX_REG_STR_LEN);
+		// Just in case strings get too long
+		descStrs->apsr_v[MAX_REG_STR_LEN-2] = '\n';
+		descStrs->apsr_v[MAX_REG_STR_LEN-1] = 0;
 	}
 }
 
@@ -1019,7 +1031,7 @@ static void logExeSetCondDescStrOnly(const struct DescStrs* descStrs,
  * 
  * \return None.
  */
-static void logExeSetRegDescStr(const struct DescStrs* descStrs, 
+static void logExeSetRegDescStr(struct DescStrs* descStrs, 
 	uint32_t regNum, uint32_t cond, const char* format, va_list arg)
 {
 	char reg_str[MAX_REG_STR_LEN];	
@@ -1034,8 +1046,11 @@ static void logExeSetRegDescStr(const struct DescStrs* descStrs,
 	vsnprintf(reg_str, MAX_REG_STR_LEN, format, arg);
 
 	uint32_t stack_depth = regStackDepths[regNum];
-	memcpy((void*)descStrs->reg[regNum][stack_depth], reg_str, 
+	memcpy(descStrs->reg[regNum][stack_depth], reg_str, 
 		MAX_REG_STR_LEN);
+	// Just in case strings get too long
+	descStrs->reg[regNum][stack_depth][MAX_REG_STR_LEN-2] = '\n';
+	descStrs->reg[regNum][stack_depth][MAX_REG_STR_LEN-1] = 0;
 
 	logExeSetCondDescStrOnly(descStrs, cond, reg_str);
 }
