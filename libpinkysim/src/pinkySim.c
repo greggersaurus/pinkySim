@@ -3475,7 +3475,7 @@ static int push(PinkySimContext* pContext, uint16_t instr)
 
         if (i <= R12)
         {
-            if (strlen(logExeGetRegValStr(i)))
+            if (registers & (1 << i) || strlen(logExeGetRegValStr(i)))
             {
                 logExeSetRegValStr(i, 0, FALSE, "arg0x%08x_%d", 
                     pContext->pc, i);
