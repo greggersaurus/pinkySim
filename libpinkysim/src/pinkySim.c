@@ -3461,22 +3461,19 @@ static int push(PinkySimContext* pContext, uint16_t instr)
                 logExeCStyleVerbose("// Save reg%d to Stack at 0x%08x (Value saved is 0x%08x)\n", 
                     i, address, getReg(pContext, i));
 
-                // We only push general registers for logging tracking purposes
-                // Setting upper limit to R12 is overkill due to encoding limits
-                if (i <= R12)
-                {
-                    logExePushRegStrs(i);
-                }
+//TODO: add simplified C logging regarding what gets saved to stack addresses (for cases in which processor reads directly from stack space)
+                logExePushRegStrs(i, address);
             }
 
             alignedMemWrite(pContext, address, 4, getReg(pContext, i));
             address += 4;
         }
 
-        if (i <= R12)
+        if (i <= R12) 
         {
-            if (registers & (1 << i) || strlen(logExeGetRegValStr(i)))
+            if (strlen(logExeGetRegValStr(i)))
             {
+//TODO: work through alternatives where "arg0x%08x_%d" is stored separately and we can clear it out and restore previous string upon pop (assuming register was not updated in fnc)
                 logExeSetRegValStr(i, 0, FALSE, "arg0x%08x_%d", 
                     pContext->pc, i);
             }
@@ -3708,11 +3705,12 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
                 logExeCStyleVerbose("// Restore reg%d from Stack at 0x%08x (Value saved was 0x%08x)\n", 
                     i, address, getReg(pContext, i));
 
-                logExePopRegStrs(i);
+                logExePopRegStrs(i, address);
             }
 
             address += 4;
         }
+//TODO: what about registers that were saved on push (and had strings changed to arg0x...) but were not restored on pop? Can we change back to previous register string?
     }
     if (registers & (1 << 15))
     {

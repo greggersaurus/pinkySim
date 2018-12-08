@@ -39,8 +39,8 @@ void logExeSetRegValStr(uint32_t regNum, uint32_t cond, int isConstVal, const ch
 const char* logExeGetRegValStr(uint32_t regNum);
 void logExeSetRegCmtStr(uint32_t regNum, uint32_t cond, const char* format, ...); 
 const char* logExeGetRegCmtStr(uint32_t regNum); 
-void logExePushRegStrs(uint32_t regNum);
-void logExePopRegStrs(uint32_t regNum);
+void logExePushRegStrs(uint32_t regNum, uint32_t addr);
+void logExePopRegStrs(uint32_t regNum, uint32_t addr);
 
 void logExeSetCondValStr(uint32_t cond, int isConstVal, const char* format, ...);
 const char* logExeGetCondValStr(uint32_t cond);

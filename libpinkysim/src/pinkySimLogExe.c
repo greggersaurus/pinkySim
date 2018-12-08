@@ -586,16 +586,12 @@ static const uint32_t MAX_DESC_STR_LEN = 128 + 32; //!< Maximum length of descri
 	//!< field in exe log.
 
 static const uint32_t MAX_REG_STR_LEN = 2048;
-static const uint32_t MAX_REG_STR_STACK_SIZE = 32;
 static const uint32_t NUM_REGS = 16; //! We do not track how PC gets updated. SP = 13, LR = 14
-
-uint32_t regStackDepths[NUM_REGS]; //!< Keeps tracks of how many pushes more pushes
-	//!< than pops have occurred for specified register.
 
 // Descriptive strings for various register and conditional settings
 typedef struct DescStrs 
 {
-	char reg[NUM_REGS][MAX_REG_STR_STACK_SIZE][MAX_REG_STR_LEN]; //!< String representing what is stored in each Register.
+	char reg[NUM_REGS][MAX_REG_STR_LEN]; //!< String representing what is stored in each Register.
 	char apsr_n[MAX_REG_STR_LEN]; //!< Action that last updated Negative Flag in ASPR register
         char apsr_z[MAX_REG_STR_LEN]; //!< Action that last updated Zero Flag in ASPR register
         char apsr_c[MAX_REG_STR_LEN]; //!< Action that last updated Carry Flag in ASPR register
@@ -609,7 +605,7 @@ static DescStrs cmtStrs; //!< Comments related to how each register or condition
 
 typedef struct HasConstVals 
 {
-	int reg[NUM_REGS][MAX_REG_STR_STACK_SIZE]; //!< If is set to TRUE
+	int reg[NUM_REGS]; //!< If is set to TRUE
 		//!< it indcates the value contained in the register is a constant.
 		//!< FALSE indicates value in register is based on values that may
 		//!< change in different circumstances (i.e. different settings 
@@ -621,6 +617,19 @@ typedef struct HasConstVals
 } HasConstVals;
 
 static HasConstVals hasConstVals;
+
+typedef struct StackEntry
+{
+	char val_str[MAX_REG_STR_LEN]; //!< See valStrs
+	char cmt_str[MAX_REG_STR_LEN]; //!< See cmdStrs
+	int hasConstVal; //!< See struct HasConstVals
+} StackEntry;
+
+static const uint32_t STACK_STR_SIZE = 0x2000;
+
+static StackEntry stackStrs[STACK_STR_SIZE]; //!< Stack-like storage for
+	//!< simplified C register related strings and states to track what is
+	//!< saved to and restored from the stack.
 
 /**
  * Enable execution logging for current simulation.
@@ -658,8 +667,6 @@ void logExeEnable(const char* chipType)
 		fprintf(exeLogCsvFile, " ");
 	}
 	fprintf(exeLogCsvFile, "%s, ", tmp_str);
-
-	fprintf(exeLogCsvFile, "  Step Num, ");
 
 	fprintf(exeLogCsvFile, "Current PC, ");
 	fprintf(exeLogCsvFile, "   Next PC, ");
@@ -720,41 +727,19 @@ void logExeEnable(const char* chipType)
 	// Initialize valStrs to default values
 	memset(&valStrs, 0, sizeof(valStrs));
 	memset(&cmtStrs, 0, sizeof(cmtStrs));
+	memset(&stackStrs, 0, sizeof(stackStrs));
 
-	uint32_t stack_depth = 0;
 	for (uint32_t reg_num = 0; reg_num < 13; reg_num++) 
 	{
-		for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
-		{
-			logExeSetRegCmtStr(reg_num, 0, ""); 
-			logExeSetRegValStr(reg_num, 0, FALSE, ""); 
-			logExePushRegStrs(reg_num);
-		}
+		logExeSetRegCmtStr(reg_num, 0, ""); 
 		logExeSetRegValStr(reg_num, 0, FALSE, ""); 
-		for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
-		{
-			logExePopRegStrs(reg_num);
-		}
 	}
-
-	for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
-	{
-		logExeSetRegValStr(13, 0, FALSE, "SP"); 
-		logExePushRegStrs(13);
-		logExeSetRegValStr(14, 0, FALSE, "LR"); 
-		logExePushRegStrs(14);
-		logExeSetRegValStr(15, 0, FALSE, "PC"); 
-		logExePushRegStrs(15);
-	}
+	logExeSetRegCmtStr(13, 0, ""); 
 	logExeSetRegValStr(13, 0, FALSE, "SP"); 
+	logExeSetRegCmtStr(14, 0, ""); 
 	logExeSetRegValStr(14, 0, FALSE, "LR"); 
+	logExeSetRegCmtStr(15, 0, ""); 
 	logExeSetRegValStr(15, 0, FALSE, "PC"); 
-	for (stack_depth = 0; stack_depth < MAX_REG_STR_STACK_SIZE-1; stack_depth++) 
-	{
-		logExePopRegStrs(13);
-		logExePopRegStrs(14);
-		logExePopRegStrs(15);
-	}
 
 	logExeSetCondValStr(APSR_NZCV, FALSE, "");
 
@@ -1045,12 +1030,10 @@ static void logExeSetRegDescStr(struct DescStrs* descStrs,
 
 	vsnprintf(reg_str, MAX_REG_STR_LEN, format, arg);
 
-	uint32_t stack_depth = regStackDepths[regNum];
-	memcpy(descStrs->reg[regNum][stack_depth], reg_str, 
-		MAX_REG_STR_LEN);
+	memcpy(descStrs->reg[regNum], reg_str, MAX_REG_STR_LEN);
 	// Just in case strings get too long
-	descStrs->reg[regNum][stack_depth][MAX_REG_STR_LEN-2] = '\n';
-	descStrs->reg[regNum][stack_depth][MAX_REG_STR_LEN-1] = 0;
+	descStrs->reg[regNum][MAX_REG_STR_LEN-2] = '\n';
+	descStrs->reg[regNum][MAX_REG_STR_LEN-1] = 0;
 
 	logExeSetCondDescStrOnly(descStrs, cond, reg_str);
 }
@@ -1074,9 +1057,7 @@ static const char* logExeGetRegDescStr(const struct DescStrs* descStrs,
 		return "ERROR: invalid regNum";
 	}
 
-	uint32_t stack_depth = regStackDepths[regNum];
-
-	return descStrs->reg[regNum][stack_depth];
+	return descStrs->reg[regNum];
 }
 
 /**
@@ -1098,9 +1079,7 @@ static void logExeSetRegHasConstVal(uint32_t regNum, int isConstVal)
 			csvEntryNum, __func__, regNum);
 	}
 
-	uint32_t stack_depth = regStackDepths[regNum];
-
-	hasConstVals.reg[regNum][stack_depth] = isConstVal;
+	hasConstVals.reg[regNum] = isConstVal;
 }
 
 /**
@@ -1198,10 +1177,11 @@ const char* logExeGetRegCmtStr(uint32_t regNum)
  *
  * \parma regNum The 0-based register number whose description string is to 
  *  be push onto the stack.
+ * \param addr Stack address of where to save data to.
  *
  * \return None.
  */
-void logExePushRegStrs(uint32_t regNum) 
+void logExePushRegStrs(uint32_t regNum, uint32_t addr) 
 {
 	if (regNum >= NUM_REGS) 
 	{
@@ -1210,14 +1190,11 @@ void logExePushRegStrs(uint32_t regNum)
 		return;
 	}
 
-	uint32_t stack_depth = regStackDepths[regNum];
-	if (stack_depth >= MAX_REG_STR_STACK_SIZE-1)
-	{
-		logExeCStyleSimplified("ERROR(%d): %s: Attempt to go above max stack depth for reg %d\n\n", 
-			csvEntryNum, __func__, regNum);
-		return;
-	}
-	regStackDepths[regNum] = stack_depth+1;
+	// Save register value information to "stack"
+	uint32_t offset = 0x1FFF & addr;
+	strncpy(stackStrs[offset].val_str, valStrs.reg[regNum], MAX_REG_STR_LEN);
+	strncpy(stackStrs[offset].cmt_str, cmtStrs.reg[regNum], MAX_REG_STR_LEN);
+	stackStrs[offset].hasConstVal = hasConstVals.reg[regNum];
 }
 
 /**
@@ -1226,10 +1203,11 @@ void logExePushRegStrs(uint32_t regNum)
  *
  * \parma regNum The 0-based register number whose description string is to 
  *  be push onto the stack.
+ * \param addr Stack address of where to data to restore is saved.
  *
  * \return None.
  */
-void logExePopRegStrs(uint32_t regNum) 
+void logExePopRegStrs(uint32_t regNum, uint32_t addr) 
 {
 	if (regNum >= NUM_REGS) 
 	{
@@ -1238,14 +1216,11 @@ void logExePopRegStrs(uint32_t regNum)
 		return;
 	}
 
-	uint32_t stack_depth = regStackDepths[regNum];
-	if (!stack_depth)
-	{
-		logExeCStyleSimplified("ERROR(%d): %s: Attempt to go below min stack depth for reg %d\n\n", 
-			csvEntryNum, __func__, regNum);
-		return;
-	}
-	regStackDepths[regNum] = stack_depth-1;
+	// Restore register value information from "stack"
+	uint32_t offset = 0x1FFF & addr;
+	strncpy(valStrs.reg[regNum], stackStrs[offset].val_str, MAX_REG_STR_LEN);
+	strncpy(cmtStrs.reg[regNum], stackStrs[offset].cmt_str, MAX_REG_STR_LEN);
+	hasConstVals.reg[regNum] = stackStrs[offset].hasConstVal;
 }
 
 /**
@@ -1442,9 +1417,7 @@ int logExeGetRegHasConstVal(uint32_t regNum)
 		return FALSE;
 	}
 
-	uint32_t stack_depth = regStackDepths[regNum];
-
-	return hasConstVals.reg[regNum][stack_depth];
+	return hasConstVals.reg[regNum];
 }
 
 /**
