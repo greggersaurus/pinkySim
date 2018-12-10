@@ -52,6 +52,11 @@ void logExeCStyleSimplified(const char* format, ...);
 int logExeGetRegHasConstVal(uint32_t regNum);
 int logExeGetCondHasConstVal(uint32_t cond);
 
+void logExeMarkAsArg(uint32_t regNum, uint32_t addr);
+void logExeUnmarkAsArg(uint32_t regNum);
+
+void logExeCpyRegStrs(uint32_t destRegNum, uint32_t srcRegNum);
+
 typedef enum MemType
 {
 	MEM_TYPE_UNKNOWN = 0x0, 

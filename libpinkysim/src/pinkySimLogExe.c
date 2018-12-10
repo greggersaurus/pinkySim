@@ -618,11 +618,26 @@ typedef struct HasConstVals
 
 static HasConstVals hasConstVals;
 
+typedef struct IsArgument
+{
+        int isArg; //!< If TRUE this designates that the value 
+                //!< descriptor string associated with this register should be
+                //!< replaced with "arg..." string to signify that the value
+                //!< supplied is an arugment to a function. 
+	char argStr[MAX_REG_STR_LEN]; //!< If isArg is TRUE, this specifies
+		//!< a string designating this register as an argument with
+		//!< details on which function this is an argument for.
+} IsArgument;
+
+static IsArgument isArgs[NUM_REGS];
+
 typedef struct StackEntry
 {
 	char val_str[MAX_REG_STR_LEN]; //!< See valStrs
 	char cmt_str[MAX_REG_STR_LEN]; //!< See cmdStrs
 	int hasConstVal; //!< See struct HasConstVals
+	int isArg; //!< See struct IsArgument
+	char argStr[MAX_REG_STR_LEN]; //!< See struct IsArgument
 } StackEntry;
 
 static const uint32_t STACK_STR_SIZE = 0x2000;
@@ -728,6 +743,7 @@ void logExeEnable(const char* chipType)
 	memset(&valStrs, 0, sizeof(valStrs));
 	memset(&cmtStrs, 0, sizeof(cmtStrs));
 	memset(&stackStrs, 0, sizeof(stackStrs));
+	memset(&isArgs, 0, sizeof(isArgs));
 
 	for (uint32_t reg_num = 0; reg_num < 13; reg_num++) 
 	{
@@ -1077,6 +1093,7 @@ static void logExeSetRegHasConstVal(uint32_t regNum, int isConstVal)
 	{
 		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
 			csvEntryNum, __func__, regNum);
+		return;
 	}
 
 	hasConstVals.reg[regNum] = isConstVal;
@@ -1136,6 +1153,10 @@ void logExeSetRegValStr(uint32_t regNum, uint32_t cond, int isConstVal,
 	logExeSetRegHasConstVal(regNum, isConstVal);
 
 	logExeSetCondHasConstVal(cond, isConstVal);
+
+	// Settings a register value string via this function removes the 
+	//  marking of register as containing purely function argument data
+	logExeUnmarkAsArg(regNum);
 }
 
 /**
@@ -1148,6 +1169,17 @@ void logExeSetRegValStr(uint32_t regNum, uint32_t cond, int isConstVal,
  */
 const char* logExeGetRegValStr(uint32_t regNum) 
 {
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
+		return "ERROR: invalid regNum";
+	}
+	if (isArgs[regNum].isArg) 
+	{
+		return isArgs[regNum].argStr;
+	} 
+
 	return logExeGetRegDescStr(&valStrs, regNum);
 }
 
@@ -1191,10 +1223,15 @@ void logExePushRegStrs(uint32_t regNum, uint32_t addr)
 	}
 
 	// Save register value information to "stack"
+	//TODO: This remapping of stack addresses to stack array will work for
+	//  simulating the LPC11U37, but should be reconsidered for other
+	//  processors.
 	uint32_t offset = 0x1FFF & addr;
 	strncpy(stackStrs[offset].val_str, valStrs.reg[regNum], MAX_REG_STR_LEN);
 	strncpy(stackStrs[offset].cmt_str, cmtStrs.reg[regNum], MAX_REG_STR_LEN);
 	stackStrs[offset].hasConstVal = hasConstVals.reg[regNum];
+	stackStrs[offset].isArg = isArgs[regNum].isArg;
+	memcpy(stackStrs[offset].argStr, isArgs[regNum].argStr, MAX_REG_STR_LEN);
 }
 
 /**
@@ -1217,10 +1254,15 @@ void logExePopRegStrs(uint32_t regNum, uint32_t addr)
 	}
 
 	// Restore register value information from "stack"
+	//TODO: This remapping of stack addresses to stack array will work for
+	//  simulating the LPC11U37, but should be reconsidered for other
+	//  processors.
 	uint32_t offset = 0x1FFF & addr;
 	strncpy(valStrs.reg[regNum], stackStrs[offset].val_str, MAX_REG_STR_LEN);
 	strncpy(cmtStrs.reg[regNum], stackStrs[offset].cmt_str, MAX_REG_STR_LEN);
 	hasConstVals.reg[regNum] = stackStrs[offset].hasConstVal;
+	isArgs[regNum].isArg = stackStrs[offset].isArg;
+	memcpy(isArgs[regNum].argStr, stackStrs[offset].argStr, MAX_REG_STR_LEN);
 }
 
 /**
@@ -1417,6 +1459,13 @@ int logExeGetRegHasConstVal(uint32_t regNum)
 		return FALSE;
 	}
 
+	// If this was marked as an argument then ignore when the underlying
+	//  value is constant or not
+	if (isArgs[regNum].isArg)
+	{
+		return FALSE;
+	}
+
 	return hasConstVals.reg[regNum];
 }
 
@@ -1477,4 +1526,74 @@ int logExeGetCondHasConstVal(uint32_t cond)
 	logExeCStyleSimplified("ERROR(%d): %s: invalid case\n\n", 
 		csvEntryNum, __func__);
 	return FALSE;
+}
+
+/**
+ * Indicate that the value stored in this register should now be viewed
+ *  as an argument to a function. 
+ * 
+ * \param regNum Index relating to register for which stored value should now
+ * 	be viewed as a function argument.
+ * \param addr Address of entry point of function. Used to form "arg..." string
+ * 	when logExeGetRegValStr() is called for this register. 
+ * 
+ * \return None.
+ */
+void logExeMarkAsArg(uint32_t regNum, uint32_t addr) {
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
+		return;
+	}
+
+	isArgs[regNum].isArg = TRUE;
+	snprintf(isArgs[regNum].argStr, MAX_REG_STR_LEN, "arg0x%08x_%d", 
+		addr, regNum);
+	isArgs[regNum].argStr[MAX_REG_STR_LEN-1] = 0;
+}
+
+/**
+ * Indicate that the value stored in this register should no longer be viewed
+ *  as an argument to a function. 
+ * 
+ * \param regNum Index relating to register for which stored value should no
+ *  longer be viewed as a function argument.
+ * 
+ * \return None.
+ */
+void logExeUnmarkAsArg(uint32_t regNum) {
+	if (regNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
+			csvEntryNum, __func__, regNum);
+		return;
+	}
+
+	isArgs[regNum].isArg = FALSE;
+}
+
+/**
+ * A straight copy (i.e. move) of one register to another. Copy every detail
+ * 	to the new register. This transfers isArg state.
+ * 
+ * \param destRegNum Register number for destination register where copied
+ *	data is to be stored.
+ * \param srcRegNum Register number for register to be copied.
+ *
+ * \return None.
+ */
+void logExeCpyRegStrs(uint32_t destRegNum, uint32_t srcRegNum) {
+	if (destRegNum >= NUM_REGS || srcRegNum >= NUM_REGS) 
+	{
+		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d or %d\n\n", 
+			csvEntryNum, __func__, destRegNum, srcRegNum);
+		return;
+	}
+
+	isArgs[destRegNum].isArg = isArgs[srcRegNum].isArg;
+	memcpy(isArgs[destRegNum].argStr, isArgs[srcRegNum].argStr, MAX_REG_STR_LEN);
+	hasConstVals.reg[destRegNum] = hasConstVals.reg[srcRegNum];
+	memcpy(cmtStrs.reg[destRegNum], cmtStrs.reg[srcRegNum], MAX_REG_STR_LEN);
+	memcpy(valStrs.reg[destRegNum], valStrs.reg[srcRegNum], MAX_REG_STR_LEN);
 }

@@ -2141,8 +2141,7 @@ static int movRegister(PinkySimContext* pContext, uint16_t instr)
         }
         else
         {
-            logExeSetRegValStr(result_reg, 0, FALSE, "%s", 
-                logExeGetRegValStr(op1_reg));
+            logExeCpyRegStrs(result_reg, op1_reg);
         }
 
         if (result_reg == 15)
@@ -3461,7 +3460,10 @@ static int push(PinkySimContext* pContext, uint16_t instr)
                 logExeCStyleVerbose("// Save reg%d to Stack at 0x%08x (Value saved is 0x%08x)\n", 
                     i, address, getReg(pContext, i));
 
-//TODO: add simplified C logging regarding what gets saved to stack addresses (for cases in which processor reads directly from stack space)
+		// Log details for cases in which processor reads directly from stack space
+                logExeCStyleSimplified("// Save arg0x%08x_%d to Stack at 0x%08x\n", 
+                    pContext->pc, i, address);
+
                 logExePushRegStrs(i, address);
             }
 
@@ -3473,9 +3475,12 @@ static int push(PinkySimContext* pContext, uint16_t instr)
         {
             if (strlen(logExeGetRegValStr(i)))
             {
-//TODO: work through alternatives where "arg0x%08x_%d" is stored separately and we can clear it out and restore previous string upon pop (assuming register was not updated in fnc)
-                logExeSetRegValStr(i, 0, FALSE, "arg0x%08x_%d", 
-                    pContext->pc, i);
+                // This will mark that this register as containing a function argument
+                //  as pushes are considered to be entering functions. The "arg..."
+                //  string will be returned for logExeGetRegValStr() unless the
+                //  register is given a new value or logExeUnmarkAsArg() is called
+                //  on the register
+                logExeMarkAsArg(i, pContext->pc);
             }
         }
     }
@@ -3693,6 +3698,14 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
             pContext->pc);
     }
 
+    for (i = 0 ; i <= R12 ; i++)
+    {
+        // Pops are assumed to be returns from functions. This will make sure 
+	//  that regiser value string is no longer "arg..." form as that only
+	//  applied within this function
+        logExeUnmarkAsArg(i);
+    }
+
     address = getReg(pContext, SP);
     // Note encoding only allows for R0-R7 and PC to be popped
     for (i = 0 ; i <= 7 ; i++)
@@ -3710,7 +3723,6 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
 
             address += 4;
         }
-//TODO: what about registers that were saved on push (and had strings changed to arg0x...) but were not restored on pop? Can we change back to previous register string?
     }
     if (registers & (1 << 15))
     {
@@ -4301,8 +4313,7 @@ static int msr(PinkySimContext* pContext, uint16_t instr1, uint16_t instr2)
                          n, value);
                      logExeSetRegCmtStr(SP, 0, "%s", 
                          logExeGetRegCmtStr(n));
-                     logExeSetRegValStr(SP, 0, TRUE, "(%s)", 
-                         logExeGetRegValStr(n));
+                     logExeCpyRegStrs(SP, n);
                 }
                 break;
             case 1:
