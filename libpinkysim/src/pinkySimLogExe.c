@@ -618,13 +618,17 @@ typedef struct HasConstVals
 
 static HasConstVals hasConstVals;
 
+static const uint32_t MAX_ARG_DEPTH = 32;
+
 typedef struct IsArgument
 {
+	uint32_t depth; //!< Defines which set of argStr is valid.
+		//!< This changes as we push into or pop out of functions.
         int isArg; //!< If TRUE this designates that the value 
                 //!< descriptor string associated with this register should be
                 //!< replaced with "arg..." string to signify that the value
                 //!< supplied is an arugment to a function. 
-	char argStr[MAX_REG_STR_LEN]; //!< If isArg is TRUE, this specifies
+	char argStr[MAX_ARG_DEPTH][MAX_REG_STR_LEN]; //!< If isArg is TRUE, this specifies
 		//!< a string designating this register as an argument with
 		//!< details on which function this is an argument for.
 } IsArgument;
@@ -636,8 +640,7 @@ typedef struct StackEntry
 	char val_str[MAX_REG_STR_LEN]; //!< See valStrs
 	char cmt_str[MAX_REG_STR_LEN]; //!< See cmdStrs
 	int hasConstVal; //!< See struct HasConstVals
-	int isArg; //!< See struct IsArgument
-	char argStr[MAX_REG_STR_LEN]; //!< See struct IsArgument
+	IsArgument isArg; //!< Details whether value is argument, etc.
 } StackEntry;
 
 static const uint32_t STACK_STR_SIZE = 0x2000;
@@ -1156,7 +1159,7 @@ void logExeSetRegValStr(uint32_t regNum, uint32_t cond, int isConstVal,
 
 	// Settings a register value string via this function removes the 
 	//  marking of register as containing purely function argument data
-	logExeUnmarkAsArg(regNum);
+	isArgs[regNum].isArg = FALSE;
 }
 
 /**
@@ -1175,9 +1178,11 @@ const char* logExeGetRegValStr(uint32_t regNum)
 			csvEntryNum, __func__, regNum);
 		return "ERROR: invalid regNum";
 	}
+
+	uint32_t depth = isArgs[regNum].depth;
 	if (isArgs[regNum].isArg) 
 	{
-		return isArgs[regNum].argStr;
+		return isArgs[regNum].argStr[depth];
 	} 
 
 	return logExeGetRegDescStr(&valStrs, regNum);
@@ -1230,8 +1235,7 @@ void logExePushRegStrs(uint32_t regNum, uint32_t addr)
 	strncpy(stackStrs[offset].val_str, valStrs.reg[regNum], MAX_REG_STR_LEN);
 	strncpy(stackStrs[offset].cmt_str, cmtStrs.reg[regNum], MAX_REG_STR_LEN);
 	stackStrs[offset].hasConstVal = hasConstVals.reg[regNum];
-	stackStrs[offset].isArg = isArgs[regNum].isArg;
-	memcpy(stackStrs[offset].argStr, isArgs[regNum].argStr, MAX_REG_STR_LEN);
+	memcpy(&stackStrs[offset].isArg, &isArgs[regNum], sizeof(IsArgument));
 }
 
 /**
@@ -1261,8 +1265,7 @@ void logExePopRegStrs(uint32_t regNum, uint32_t addr)
 	strncpy(valStrs.reg[regNum], stackStrs[offset].val_str, MAX_REG_STR_LEN);
 	strncpy(cmtStrs.reg[regNum], stackStrs[offset].cmt_str, MAX_REG_STR_LEN);
 	hasConstVals.reg[regNum] = stackStrs[offset].hasConstVal;
-	isArgs[regNum].isArg = stackStrs[offset].isArg;
-	memcpy(isArgs[regNum].argStr, stackStrs[offset].argStr, MAX_REG_STR_LEN);
+	memcpy(&isArgs[regNum], &stackStrs[offset].isArg, sizeof(IsArgument));
 }
 
 /**
@@ -1529,8 +1532,7 @@ int logExeGetCondHasConstVal(uint32_t cond)
 }
 
 /**
- * Indicate that the value stored in this register should now be viewed
- *  as an argument to a function. 
+ * Call during push as all register values could be function arguments.
  * 
  * \param regNum Index relating to register for which stored value should now
  * 	be viewed as a function argument.
@@ -1539,7 +1541,7 @@ int logExeGetCondHasConstVal(uint32_t cond)
  * 
  * \return None.
  */
-void logExeMarkAsArg(uint32_t regNum, uint32_t addr) {
+void logExePushArg(uint32_t regNum, uint32_t addr) {
 	if (regNum >= NUM_REGS) 
 	{
 		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
@@ -1547,22 +1549,32 @@ void logExeMarkAsArg(uint32_t regNum, uint32_t addr) {
 		return;
 	}
 
+	// Pushing argument details onto the argument "stack"
+	if (isArgs[regNum].depth + 1 < MAX_ARG_DEPTH) {
+		isArgs[regNum].depth++;
+	} else {
+		logExeCStyleSimplified("ERROR(%d): %s: attempt to do above max "
+			"isArgs.depth for reg %d\n\n", 
+			csvEntryNum, __func__, regNum);
+	}
+
+	uint32_t depth = isArgs[regNum].depth;
 	isArgs[regNum].isArg = TRUE;
-	snprintf(isArgs[regNum].argStr, MAX_REG_STR_LEN, "arg0x%08x_%d", 
+	snprintf(isArgs[regNum].argStr[depth], MAX_REG_STR_LEN, "arg0x%08x_%d", 
 		addr, regNum);
-	isArgs[regNum].argStr[MAX_REG_STR_LEN-1] = 0;
+	isArgs[regNum].argStr[depth][MAX_REG_STR_LEN-1] = 0;
 }
 
 /**
- * Indicate that the value stored in this register should no longer be viewed
- *  as an argument to a function. 
+ * Step back to previous possible arg... to be used (if this register still
+ *  has the value of the function argument).
  * 
  * \param regNum Index relating to register for which stored value should no
  *  longer be viewed as a function argument.
  * 
  * \return None.
  */
-void logExeUnmarkAsArg(uint32_t regNum) {
+void logExePopArg(uint32_t regNum) {
 	if (regNum >= NUM_REGS) 
 	{
 		logExeCStyleSimplified("ERROR(%d): %s: invalid regNum %d\n\n", 
@@ -1570,7 +1582,13 @@ void logExeUnmarkAsArg(uint32_t regNum) {
 		return;
 	}
 
-	isArgs[regNum].isArg = FALSE;
+	if (isArgs[regNum].depth > 0) {
+		isArgs[regNum].depth--;
+	} else {
+		logExeCStyleSimplified("ERROR(%d): %s: attempt to do below 0 "
+			"isArgs.depth for reg %d\n\n", 
+			csvEntryNum, __func__, regNum);
+	}
 }
 
 /**
@@ -1591,8 +1609,7 @@ void logExeCpyRegStrs(uint32_t destRegNum, uint32_t srcRegNum) {
 		return;
 	}
 
-	isArgs[destRegNum].isArg = isArgs[srcRegNum].isArg;
-	memcpy(isArgs[destRegNum].argStr, isArgs[srcRegNum].argStr, MAX_REG_STR_LEN);
+	memcpy(&isArgs[destRegNum], &isArgs[srcRegNum], sizeof(IsArgument));
 	hasConstVals.reg[destRegNum] = hasConstVals.reg[srcRegNum];
 	memcpy(cmtStrs.reg[destRegNum], cmtStrs.reg[srcRegNum], MAX_REG_STR_LEN);
 	memcpy(valStrs.reg[destRegNum], valStrs.reg[srcRegNum], MAX_REG_STR_LEN);

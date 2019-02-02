@@ -3473,15 +3473,11 @@ static int push(PinkySimContext* pContext, uint16_t instr)
 
         if (i <= R12) 
         {
-            if (strlen(logExeGetRegValStr(i)))
-            {
-                // This will mark that this register as containing a function argument
-                //  as pushes are considered to be entering functions. The "arg..."
-                //  string will be returned for logExeGetRegValStr() unless the
-                //  register is given a new value or logExeUnmarkAsArg() is called
-                //  on the register
-                logExeMarkAsArg(i, pContext->pc);
-            }
+            // This will mark that this register as containing a function argument
+            //  as pushes are considered to be entering functions. The "arg..."
+            //  string will be returned for logExeGetRegValStr() unless the
+            //  register is given a new value 
+            logExePushArg(i, pContext->pc);
         }
     }
     setReg(pContext, SP, getReg(pContext, SP) - 4 * bitCount(registers));
@@ -3700,10 +3696,10 @@ static int pop(PinkySimContext* pContext, uint16_t instr)
 
     for (i = 0 ; i <= R12 ; i++)
     {
-        // Pops are assumed to be returns from functions. This will make sure 
-	//  that regiser value string is no longer "arg..." form as that only
-	//  applied within this function
-        logExeUnmarkAsArg(i);
+        // Pops are assumed to be returns from functions. This will properly
+	//  update arg... name (which will only be used if that register still
+	//  holds that funcation argument).
+        logExePopArg(i);
     }
 
     address = getReg(pContext, SP);
