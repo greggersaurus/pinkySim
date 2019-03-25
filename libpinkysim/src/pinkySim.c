@@ -1655,7 +1655,7 @@ static int tstRegister(PinkySimContext* pContext, uint16_t instr)
             logExeGetRegCmtStr(op1_reg), logExeGetRegCmtStr(op2_reg));
         if (logExeGetRegHasConstVal(op1_reg) && logExeGetRegHasConstVal(op2_reg))
         {
-            logExeSetCondValStr(APSR_NZ, TRUE, "(%s) & (%s)", 
+            logExeSetCondValStr(APSR_NZ, TRUE, "0x%08x", 
                 result_val);
         }
         else
